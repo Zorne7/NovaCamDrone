@@ -2,6 +2,8 @@
 
 Sistema completo per comandare il drone Nova Cam tramite ESP32 e Python.
 
+WIFI Drone: "NOVA CAM DRONE-dc8d36"
+
 ## 📐 Architettura
 
 ```
