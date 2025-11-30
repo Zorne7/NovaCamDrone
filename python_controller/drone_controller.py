@@ -206,49 +206,101 @@ class DroneController:
         ]
     
     def hover(self):
-        """Mantieni posizione hover"""
+        """Mantieni posizione hover (singolo comando)"""
         cmd = self.create_fly_command()
         return self.send_command(cmd)
     
-    def takeoff(self, duration: float = 2.0, power: int = 180):
+    def hover_sustained(self, duration: float = 5.0):
         """
-        Simulazione decollo
+        Mantieni hover per un periodo prolungato
         
         Args:
-            duration: Durata comando in secondi
-            power: Potenza throttle (128-255)
+            duration: Durata hover in secondi
         """
-        print(f"Decollo per {duration}s...")
-        cmd = self.create_fly_command(throttle=power)
+        print(f"Hover sostenuto per {duration}s...")
+        hover_cmd = self.create_fly_command(throttle=140)  # Hover attivo
         
         start = time.time()
         while time.time() - start < duration:
-            self.send_command(cmd)
-            time.sleep(0.05)  # 50ms = 20Hz
+            self.send_command(hover_cmd)
+            time.sleep(0.05)  # 20Hz
         
-        # Torna a hover
-        self.hover()
-        print("Hover")
+        print("✓ Hover completato")
     
-    def land(self, duration: float = 2.0, power: int = 80):
+    def emergency_stop(self):
+        """EMERGENZA: Ferma immediatamente tutti i comandi"""
+        print("🚨 STOP DI EMERGENZA! 🚨")
+        for _ in range(5):
+            self.stop_control()
+            time.sleep(0.1)
+        print("✓ Comandi di stop inviati")
+    
+    def takeoff(self, duration: float = 5.0, power: int = 200):
         """
-        Simulazione atterraggio
+        Decollo reale del drone
         
         Args:
-            duration: Durata comando in secondi
-            power: Potenza throttle (1-128)
+            duration: Durata spinta decollo in secondi (default 5s)
+            power: Potenza throttle per decollo (128-255, default 200)
         """
-        print(f"Atterraggio per {duration}s...")
-        cmd = self.create_fly_command(throttle=power)
+        print("⚠️  DECOLLO REALE - Assicurati che il drone sia pronto!")
+        print("Armamento motori...")
         
-        start = time.time()
-        while time.time() - start < duration:
-            self.send_command(cmd)
+        # Fase 1: Armamento (1 secondo a throttle minimo)
+        arm_cmd = self.create_fly_command(throttle=135)  # Poco sopra hover
+        for _ in range(20):  # 1 secondo
+            self.send_command(arm_cmd)
             time.sleep(0.05)
         
-        # Stop controllo
+        print(f"Spinta decollo per {duration}s (potenza {power})...")
+        
+        # Fase 2: Spinta decollo
+        takeoff_cmd = self.create_fly_command(throttle=power)
+        start = time.time()
+        while time.time() - start < duration:
+            self.send_command(takeoff_cmd)
+            time.sleep(0.05)  # 20Hz
+        
+        # Fase 3: Stabilizzazione hover
+        print("Stabilizzazione hover...")
+        hover_cmd = self.create_fly_command(throttle=140)  # Hover attivo
+        for _ in range(40):  # 2 secondi di hover
+            self.send_command(hover_cmd)
+            time.sleep(0.05)
+        
+        print("✓ Decollo completato - Drone in hover")
+    
+    def land(self, duration: float = 4.0, power: int = 100):
+        """
+        Atterraggio reale del drone
+        
+        Args:
+            duration: Durata discesa in secondi (default 4s)
+            power: Potenza throttle per discesa (1-128, default 100)
+        """
+        print("⚠️  ATTERRAGGIO REALE")
+        print(f"Discesa graduale per {duration}s (potenza {power})...")
+        
+        # Fase 1: Discesa controllata
+        land_cmd = self.create_fly_command(throttle=power)
+        start = time.time()
+        while time.time() - start < duration:
+            self.send_command(land_cmd)
+            time.sleep(0.05)  # 20Hz
+        
+        # Fase 2: Tocco finale (throttle molto basso)
+        print("Tocco finale...")
+        final_cmd = self.create_fly_command(throttle=50)
+        for _ in range(20):  # 1 secondo
+            self.send_command(final_cmd)
+            time.sleep(0.05)
+        
+        # Fase 3: Stop motori
+        print("Spegnimento motori...")
         self.stop_control()
-        print("Atterrato")
+        time.sleep(0.5)
+        
+        print("✓ Atterraggio completato - Motori spenti")
     
     def move(self, direction: str, power: int = 160, duration: float = 1.0):
         """
@@ -289,68 +341,121 @@ class DroneController:
 def interactive_mode(controller: DroneController):
     """Modalità interattiva con menu"""
     print("\n" + "="*50)
-    print("DRONE CONTROLLER - Modalità Interattiva")
+    print("🚁 DRONE CONTROLLER - Modalità Interattiva")
     print("="*50)
-    print("\nComandi disponibili:")
-    print("  h - Heartbeat manuale")
-    print("  i - Info sistema")
-    print("  a - Toggle auto-heartbeat")
-    print("  c - Cambia camera")
-    print("  s - Stop controllo")
-    print("  t - Decollo (simulato)")
-    print("  l - Atterraggio (simulato)")
-    print("  v - Hover")
-    print("  w/a/s/d - Avanti/Sinistra/Indietro/Destra")
-    print("  q/e - Ruota sinistra/destra")
-    print("  u/j - Su/Giù")
-    print("  x - Esci")
-    print("\nPremi un tasto seguito da INVIO:\n")
+    print("\n📋 COMANDI DISPONIBILI:")
+    print("\n  CONTROLLO BASE:")
+    print("    h - Heartbeat manuale")
+    print("    i - Info sistema ESP32")
+    print("    a - Toggle auto-heartbeat")
+    print("    c - Cambia camera")
+    print("    s - Stop controllo")
+    print()
+    print("  VOLO:")
+    print("    t - Decollo REALE (5 secondi)")
+    print("    l - Atterraggio REALE (4 secondi)")
+    print("    v - Hover sostenuto (5 secondi)")
+    print("    ! - STOP EMERGENZA")
+    print()
+    print("  MOVIMENTO (1 secondo):")
+    print("    w - Avanti")
+    print("    s - Indietro")
+    print("    a - Sinistra")
+    print("    d - Destra")
+    print("    q - Ruota sinistra")
+    print("    e - Ruota destra")
+    print("    u - Su")
+    print("    j - Giù")
+    print()
+    print("  ALTRO:")
+    print("    x - Esci")
+    print("\n" + "="*50)
+    print("⚠️  Digita un comando e premi INVIO")
+    print("="*50 + "\n")
     
     try:
         while True:
-            cmd = input("> ").strip().lower()
+            cmd = input("🎮 Comando > ").strip().lower()
             
             if not cmd:
                 continue
             
+            print()  # Riga vuota per leggibilità
+            
             if cmd == 'x':
-                print("Uscita...")
+                print("👋 Uscita...")
                 break
             elif cmd == 'h':
+                print("💓 Invio heartbeat...")
                 controller.heartbeat()
             elif cmd == 'i':
+                print("ℹ️  Richiedo info sistema...")
                 controller.get_info()
             elif cmd == 'a':
+                print("🔄 Toggle auto-heartbeat...")
                 controller.toggle_auto_heartbeat()
             elif cmd == 'c':
+                print("📷 Cambio camera...")
                 controller.switch_camera()
             elif cmd == 's':
+                print("🛑 STOP controllo!")
                 controller.stop_control()
             elif cmd == 't':
-                controller.takeoff(duration=2.0)
+                print("🚀 DECOLLO REALE (5 secondi di spinta)")
+                confirm = input("⚠️  Sei sicuro? Il drone DECOLLERÀ! (s/n): ")
+                if confirm.lower() == 's':
+                    controller.takeoff(duration=5.0)
+                else:
+                    print("❌ Decollo annullato")
             elif cmd == 'l':
-                controller.land(duration=2.0)
+                print("🛬 ATTERRAGGIO REALE (4 secondi)")
+                confirm = input("⚠️  Sei sicuro? (s/n): ")
+                if confirm.lower() == 's':
+                    controller.land(duration=4.0)
+                else:
+                    print("❌ Atterraggio annullato")
             elif cmd == 'v':
-                controller.hover()
+                print("🚁 Hover sostenuto (5 secondi)...")
+                controller.hover_sustained(duration=5.0)
+            elif cmd == '!':
+                controller.emergency_stop()
             elif cmd == 'w':
+                print("⬆️  Movimento AVANTI per 1 secondo...")
                 controller.move('forward', duration=1.0)
+                print("✓ Completato")
             elif cmd == 's':
+                print("⬇️  Movimento INDIETRO per 1 secondo...")
                 controller.move('backward', duration=1.0)
+                print("✓ Completato")
             elif cmd == 'a':
+                print("⬅️  Movimento SINISTRA per 1 secondo...")
                 controller.move('left', duration=1.0)
+                print("✓ Completato")
             elif cmd == 'd':
+                print("➡️  Movimento DESTRA per 1 secondo...")
                 controller.move('right', duration=1.0)
+                print("✓ Completato")
             elif cmd == 'q':
+                print("↶ ROTAZIONE SINISTRA per 1 secondo...")
                 controller.move('rotate_left', duration=1.0)
+                print("✓ Completato")
             elif cmd == 'e':
+                print("↷ ROTAZIONE DESTRA per 1 secondo...")
                 controller.move('rotate_right', duration=1.0)
+                print("✓ Completato")
             elif cmd == 'u':
+                print("⬆️  Movimento SU per 1 secondo...")
                 controller.move('up', duration=1.0)
+                print("✓ Completato")
             elif cmd == 'j':
+                print("⬇️  Movimento GIÙ per 1 secondo...")
                 controller.move('down', duration=1.0)
+                print("✓ Completato")
             else:
-                print(f"Comando non riconosciuto: {cmd}")
+                print(f"❌ Comando non riconosciuto: '{cmd}'")
+                print("💡 Premi 'i' per info o 'x' per uscire")
             
+            print()  # Riga vuota dopo output
             time.sleep(0.1)
     
     except KeyboardInterrupt:
