@@ -32,21 +32,25 @@ class DroneController:
     MIN_VALUE = 1
     MAX_VALUE = 255
     
-    def __init__(self, port: str, baudrate: int = 115200, debug: bool = True):
+    def __init__(self, port: str, baudrate: int = 115200, debug: bool = True, verbose: int = 1):
         """
         Inizializza il controller
         
         Args:
             port: Porta seriale (es. 'COM3' o '/dev/ttyUSB0')
             baudrate: Velocità seriale (default 115200)
-            debug: Stampa messaggi di debug
+            debug: Stampa messaggi di debug comandi
+            verbose: Livello verbosity (0=silenzioso, 1=normale, 2=tutto)
         """
         self.port = port
         self.baudrate = baudrate
         self.debug = debug
+        self.verbose = verbose
         self.serial: Optional[serial.Serial] = None
         self.running = False
         self.read_thread: Optional[threading.Thread] = None
+        self.esp32_connected = False
+        self.drone_connected = False
         
     def connect(self) -> bool:
         """Connette alla porta seriale"""
@@ -87,17 +91,52 @@ class DroneController:
             print("Disconnesso")
     
     def _read_loop(self):
-        """Thread di lettura continua dalla seriale"""
+        """Thread di lettura continua dalla seriale con filtraggio intelligente"""
         while self.running:
             try:
                 if self.serial and self.serial.in_waiting:
                     line = self.serial.readline().decode('utf-8', errors='ignore').strip()
                     if line:
-                        print(f"ESP32: {line}")
+                        self._process_esp32_line(line)
             except Exception as e:
                 if self.debug:
                     print(f"Errore lettura: {e}")
             time.sleep(0.01)
+    
+    def _process_esp32_line(self, line: str):
+        """Processa e filtra log ESP32"""
+        # Aggiorna stato connessioni
+        if "WiFi Connected" in line or "WiFi reconnected" in line:
+            self.esp32_connected = True
+            if self.verbose >= 1:
+                print(f"✅ ESP32: {line}")
+        elif "WiFi Connection Failed" in line or "Not connected" in line:
+            self.esp32_connected = False
+            print(f"❌ ESP32: {line}")
+        elif "TX[" in line:
+            # Comando inviato al drone
+            if self.verbose >= 2:
+                print(f"📤 ESP32: {line}")
+        elif "RX[" in line:
+            # Risposta dal drone
+            self.drone_connected = True
+            if self.verbose >= 2:
+                print(f"📥 ESP32: {line}")
+        elif "Resolution:" in line or "Type:" in line:
+            # Messaggi ripetitivi - mostra solo in verbose 2
+            if self.verbose >= 2:
+                print(f"  ESP32: {line}")
+        elif "SYSTEM INFO" in line or "WiFi Status" in line:
+            # Info richieste - mostra sempre
+            print(f"ℹ️  ESP32: {line}")
+        elif "Auto-heartbeat" in line:
+            # Cambio stato auto-heartbeat
+            if self.verbose >= 1:
+                print(f"🔄 ESP32: {line}")
+        else:
+            # Altri messaggi - mostra in base a verbose
+            if self.verbose >= 1:
+                print(f"ESP32: {line}")
     
     def send_command(self, data: List[int]) -> bool:
         """
@@ -164,6 +203,82 @@ class DroneController:
     def get_info(self):
         """Richiede informazioni di sistema"""
         return self.send_text_command('I')
+    
+    def test_connection(self) -> bool:
+        """
+        Test completo della comunicazione Computer -> ESP32 -> Drone
+        
+        Returns:
+            True se tutto funziona
+        """
+        print("\n" + "="*60)
+        print("🔍 TEST COMUNICAZIONE")
+        print("="*60)
+        
+        # Test 1: Seriale Computer -> ESP32
+        print("\n[1/3] Test Seriale (Computer -> ESP32)...")
+        if not self.serial or not self.serial.is_open:
+            print("❌ FALLITO: Porta seriale non aperta")
+            return False
+        print("✅ OK: Porta seriale aperta")
+        
+        # Test 2: WiFi ESP32 -> Drone
+        print("\n[2/3] Test WiFi (ESP32 -> Drone)...")
+        time.sleep(0.5)
+        self.get_info()
+        time.sleep(1.5)  # Attendi risposta
+        
+        if self.esp32_connected:
+            print("✅ OK: ESP32 connesso al WiFi drone")
+        else:
+            print("❌ FALLITO: ESP32 non connesso al WiFi")
+            print("💡 Verifica:")
+            print("   - Nome WiFi drone corretto nel firmware ESP32")
+            print("   - Drone acceso e WiFi attivo")
+            return False
+        
+        # Test 3: UDP ESP32 <-> Drone
+        print("\n[3/3] Test UDP (ESP32 <-> Drone)...")
+        self.drone_connected = False
+        print("Invio heartbeat e attendo risposta...")
+        self.heartbeat()
+        time.sleep(1.5)  # Attendi risposta UDP
+        
+        if self.drone_connected:
+            print("✅ OK: Drone risponde ai comandi UDP")
+        else:
+            print("⚠️  ATTENZIONE: Nessuna risposta UDP dal drone")
+            print("💡 Possibili cause:")
+            print("   - Drone non acceso completamente")
+            print("   - IP/porta drone errati nel firmware ESP32")
+            print("   - Drone in modalità standby")
+        
+        # Risultato finale
+        print("\n" + "="*60)
+        if self.esp32_connected and self.drone_connected:
+            print("✅ TEST SUPERATO: Comunicazione completa funzionante!")
+            print("="*60 + "\n")
+            return True
+        else:
+            print("⚠️  TEST PARZIALE: Alcune connessioni mancanti")
+            print("="*60 + "\n")
+            return False
+    
+    def set_verbose(self, level: int):
+        """
+        Imposta livello verbosity
+        
+        Args:
+            level: 0=silenzioso, 1=normale, 2=tutto
+        """
+        self.verbose = max(0, min(2, level))
+        print(f"Verbosity impostato a: {level}")
+        if level == 0:
+            print("🔇 Modalità silenziosa: solo errori")
+        elif level == 1:
+            print("🔊 Modalità normale: eventi importanti")
+        else:
+            print("📢 Modalità verbose: tutti i log ESP32")
     
     def create_fly_command(
         self,
@@ -350,6 +465,11 @@ def interactive_mode(controller: DroneController):
     print("    a - Toggle auto-heartbeat")
     print("    c - Cambia camera")
     print("    s - Stop controllo")
+    print("\n  TEST & DEBUG:")
+    print("    test - Test comunicazione completa")
+    print("    v0 - Verbosity 0 (silenzioso)")
+    print("    v1 - Verbosity 1 (normale)")
+    print("    v2 - Verbosity 2 (tutto)")
     print()
     print("  VOLO:")
     print("    t - Decollo REALE (5 secondi)")
@@ -400,6 +520,14 @@ def interactive_mode(controller: DroneController):
             elif cmd == 's':
                 print("🛑 STOP controllo!")
                 controller.stop_control()
+            elif cmd == 'test':
+                controller.test_connection()
+            elif cmd == 'v0':
+                controller.set_verbose(0)
+            elif cmd == 'v1':
+                controller.set_verbose(1)
+            elif cmd == 'v2':
+                controller.set_verbose(2)
             elif cmd == 't':
                 print("🚀 DECOLLO REALE (5 secondi di spinta)")
                 confirm = input("⚠️  Sei sicuro? Il drone DECOLLERÀ! (s/n): ")
@@ -472,10 +600,13 @@ def main():
     
     port = sys.argv[1]
     
-    # Crea controller
-    controller = DroneController(port, debug=True)
+    # Crea controller con verbosity normale (1) per default
+    controller = DroneController(port, debug=True, verbose=1)
     
     # Connetti
+    print("\n💡 Tip: Usa 'v0' (silenzioso), 'v1' (normale), 'v2' (verbose)")
+    print("        Usa 'test' per verificare comunicazione\n")
+    
     if not controller.connect():
         print("Impossibile connettersi")
         sys.exit(1)
