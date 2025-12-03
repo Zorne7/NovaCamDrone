@@ -66,7 +66,7 @@ struct FlyParams {
     controlByte1 = max(controlByte1, uint8_t(1));
     controlByte2 = max(controlByte2, uint8_t(1));
     controlAccelerator = controlAccelerator == 1 ? 0 : controlAccelerator;
-    controlTurn = (controlTurn >= (controlTurn - DEAD_ZONE) && controlTurn <= (controlTurn + DEAD_ZONE)) ? NEUTRAL : max(controlTurn, uint8_t(1));
+    controlTurn = (controlTurn >= (NEUTRAL - DEAD_ZONE) && controlTurn <= (NEUTRAL + DEAD_ZONE)) ? NEUTRAL : max(controlTurn, uint8_t(1));
   }
 };
 
@@ -87,8 +87,9 @@ struct FlyCmd {
 };
 
 enum UserCmd {
+  CmdAck			= 'a',
   CmdConnStatus 	= 'w',
-  CmdSetAutoHB 		= 'a',
+  CmdSetAutoHB 		= 'b',
   CmdHeartbeat 		= 'h',
   CmdStopCtrl 		= 's',
   CmdSwitchCam 		= 'c',
@@ -213,6 +214,15 @@ public:
           }
           break;
         }
+		case CmdAck: {
+		  uint8_t ack;
+          if(readCommand(&ack, sizeof(ack)) == sizeof(ack)){
+            if(sendAck(ack)){
+			  return;
+			}
+          }
+          break;
+        }
         default:
           break;
     }
@@ -230,12 +240,14 @@ public:
   }
 
 private:
+  // Send cmd to drone
   void sendCommand(const uint8_t *data, size_t length) {
     udp.beginPacket(DRONE_IP, DRONE_PORT);
     udp.write(data, length);
     udp.endPacket();
   }
   
+  // Send resp to user
   void sendResponse(uint8_t type, const uint8_t *data = 0, size_t length = 0) {
 	Serial.write(&type, 1);
 	if(data && length > 0){
@@ -243,6 +255,7 @@ private:
 	}
   }
   
+  // Read cmd from user
   int readCommand(uint8_t *data, size_t length) {
 	if(Serial.available() <= 0){
 	  return 0;
