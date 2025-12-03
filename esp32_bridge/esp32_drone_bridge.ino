@@ -74,7 +74,7 @@ struct FlyCmd {
   const uint8_t header 	= 0x03;
   const uint8_t start 	= 0x66;
   FlyParams flyParams;
-  uint8_t crc 			= 0x00; // Checksum
+  uint8_t crc 			= 0x00;
   const uint8_t end 	= 0x99;
 
   void calculateCrc() {    
@@ -101,7 +101,6 @@ public:
   bool autoHeartbeat = true;
 
   void init() {
-    // Debug output init
     tft.init();
     tft.setRotation(1);
     tft.frameViewport(TFT_RED, 2);
@@ -200,6 +199,7 @@ public:
 		  uint8_t cam;
           if(readCommand(&cam, sizeof(cam)) == sizeof(cam)){
             if(sendSwitchCamera(cam)){
+			  sendResponse(AckOk);
 			  return;
 			}
           }
@@ -218,6 +218,7 @@ public:
 		  uint8_t ack;
           if(readCommand(&ack, sizeof(ack)) == sizeof(ack)){
             if(sendAck(ack)){
+			  sendResponse(AckOk);
 			  return;
 			}
           }
@@ -277,10 +278,10 @@ uint32_t counter = 0;
 // ===== SETUP =====
 void setup() {
   Serial.begin(SERIAL_BAUD);
-  // Configure WiFi
+  
   WiFi.mode(WIFI_STA);
   WiFi.setAutoReconnect(true);
-  // Init DroneController
+  
   droneCtrl.init();
   droneCtrl.println(DRONE_SSID);
 }
