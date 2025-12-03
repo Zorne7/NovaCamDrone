@@ -7,74 +7,92 @@
 #include <TFT_eSPI.h>
 
 // ===== DRONE CONFIG =====
-#define DRONE_SSID "NOVA CAM DRONE-dc8d36"
-#define DRONE_PASSWORD ""
-#define DRONE_IP "192.168.1.1"
-#define DRONE_PORT 7099
-#define DRONE_RESP_PORT 8888
-#define VIDEO_PORT 7070
-#define DRONE_BUFF_SIZE 256
+#define DRONE_SSID 			"NOVA CAM DRONE-dc8d36"
+#define DRONE_PASSWORD 		""
+#define DRONE_IP 			"192.168.1.1"
+#define DRONE_PORT 			7099
+#define DRONE_RESP_PORT 	8888
+#define VIDEO_PORT 			7070
+#define DRONE_BUFF_SIZE 	256
 
 // ===== SERIAL CONFIG =====
-#define SERIAL_BAUD 115200
+#define SERIAL_BAUD 		921600
 
 // ===== TIMING =====
-#define CONNECTION_TIMEOUT 3000
-#define HEARTBEAT_INTERVAL 1000
+#define CONNECTION_TIMEOUT 	3000
+#define HEARTBEAT_INTERVAL 	1000
 
 // ===== WIFI =====
 static inline bool isConnected() { return WiFi.status() == WL_CONNECTED; }
 
 // ===== TYPES =====
 enum FlyControllerFlags {
-  FastFly = 1 << 0,
-  FastDrop = 1 << 1,
-  EmergencyStop = 1 << 2,
-  CircleTurnEnd = 1 << 3,
-  NoHeadMode = 1 << 4,
-  Unlock = 1 << 5,
-  GyroCorrection = 1 << 7
+  FastFly 			= 1 << 0,
+  FastDrop 			= 1 << 1,
+  EmergencyStop 	= 1 << 2,
+  CircleTurnEnd 	= 1 << 3,
+  NoHeadMode 		= 1 << 4,
+  Unlock 			= 1 << 5,
+  GyroCorrection 	= 1 << 7
 };
 
-static const uint8_t NEUTRAL = 128;
+enum Cam {
+  CamFront 	= 0x01,
+  CamBack  	= 0x02
+};
+
+enum Ack {
+  AckPhoto	= 0x01,
+  AckVideo	= 0x02,  
+};
+
+enum ResponseType {
+  AckKo		= 0x00,
+  AckOk		= 0x01,
+  Feedback	= 0x02,
+  DroneData	= 0x03
+}
+
+static constexpr uint8_t NEUTRAL 	= 128;
+static constexpr uint8_t DEAD_ZONE 	= 24;
 struct FlyParams {
-  uint8_t controlByte1 = NEUTRAL; // Control left/right
-  uint8_t controlByte2 = NEUTRAL; // Control front/back
-  uint8_t controlAccelerator = NEUTRAL; // Accelerator
-  uint8_t controlTurn = NEUTRAL; // Rotation
-  uint8_t cmdFlags = 0x00; // FlyControllerFlags
+  uint8_t controlByte1 			= NEUTRAL; 	// Control left/right
+  uint8_t controlByte2 			= NEUTRAL; 	// Control front/back
+  uint8_t controlAccelerator 	= NEUTRAL; 	// Accelerator
+  uint8_t controlTurn 			= NEUTRAL; 	// Rotation
+  uint8_t cmdFlags 				= 0x00; 	// FlyControllerFlags
 
   void normalize() {
     controlByte1 = max(controlByte1, uint8_t(1));
     controlByte2 = max(controlByte2, uint8_t(1));
     controlAccelerator = controlAccelerator == 1 ? 0 : controlAccelerator;
-    controlTurn = (controlTurn >= 104 && controlTurn <= 152) ? NEUTRAL : max(controlTurn, uint8_t(1));
+    controlTurn = (controlTurn >= (controlTurn - DEAD_ZONE) && controlTurn <= (controlTurn + DEAD_ZONE)) ? NEUTRAL : max(controlTurn, uint8_t(1));
   }
 };
 
 struct FlyCmd {
-  const uint8_t header = 3;
-  const uint8_t start = 102;
+  const uint8_t header 	= 0x03;
+  const uint8_t start 	= 0x66;
   FlyParams flyParams;
-  uint8_t crc = 0x00; // Checksum
-  const uint8_t end = 153;
+  uint8_t crc 			= 0x00; // Checksum
+  const uint8_t end 	= 0x99;
 
   void calculateCrc() {    
-    crc = (((flyParams.controlByte1 
-    ^ flyParams.controlByte2) 
-    ^ flyParams.controlAccelerator) 
-    ^ flyParams.controlTurn) 
-    ^ flyParams.cmdFlags;
+    crc = flyParams.controlByte1 ^
+          flyParams.controlByte2 ^
+          flyParams.controlAccelerator ^
+          flyParams.controlTurn ^
+          flyParams.cmdFlags;
   }
 };
 
 enum UserCmd {
-  CmdConnStatus = 'w',
-  CmdSetAutoHB = 'a',
-  CmdHeartbeat = 'h',
-  CmdStopCtrl = 's',
-  CmdSwitchCam = 'c',
-  CmdSetFlyParams = 'f'
+  CmdConnStatus 	= 'w',
+  CmdSetAutoHB 		= 'a',
+  CmdHeartbeat 		= 'h',
+  CmdStopCtrl 		= 's',
+  CmdSwitchCam 		= 'c',
+  CmdSetFlyParams 	= 'f'
 };
 
 class DroneController {
@@ -123,10 +141,13 @@ public:
     sendCommand(CMD_STOP_CONTROL, sizeof(CMD_STOP_CONTROL));
   }
 
-  void sendSwitchCamera(uint8_t cam) {
-    static const uint8_t CMD_SWITCH_CAM_FRONT[] = {6, 1};
-    static const uint8_t CMD_SWITCH_CAM_BACK[] = {6, 2};
-    sendCommand(cam != 0 ? CMD_SWITCH_CAM_FRONT : CMD_SWITCH_CAM_BACK, sizeof(CMD_SWITCH_CAM_FRONT));
+  bool sendSwitchCamera(uint8_t cam) {
+	if(cam != CamFront && cam != CamBack) {
+	  return false;
+	}
+    const uint8_t CMD_SWITCH_CAM[] = {6, cam};
+    sendCommand(CMD_SWITCH_CAM, sizeof(CMD_SWITCH_CAM));
+	return true;
   }
 
   void sendFlyCommand() {
@@ -135,46 +156,67 @@ public:
     cmd.calculateCrc();
     sendCommand((const uint8_t *)&cmd, sizeof(cmd));
   }
+  
+  bool sendAck(uint8_t ack) {
+	if(ack != AckPhoto && ack != AckVideo) {
+	  return false;
+	}
+    const uint8_t CMD_ACK[] = {9, ack};
+    sendCommand(CMD_ACK, sizeof(CMD_ACK));
+	return true;
+  }
 
   void parseUserCmd() {
-    if (Serial.available() <= 0) {
+	uint8_t cmd;  
+    if (readCommand(&cmd, sizeof(cmd)) != sizeof(cmd)) {
+	  // No cmd received
       return;
     }
-    char c = Serial.read();
-    switch (c){
+    switch (cmd){
         case CmdConnStatus:{
-          char status = isConnected();
-          Serial.write(&status, 1);
-          break;
+          const uint8_t connStatus = isConnected();
+          sendResponse(Feedback, &status, 1);
+          return;
         }
-        case CmdSetAutoHB:
-          if(Serial.available() > 0){
-            autoHeartbeat = Serial.read() != 0;
+        case CmdSetAutoHB: {
+		  uint8_t autoHB;
+          if(readCommand(&autoHB, sizeof(autoHB)) == sizeof(autoHB)){
+            autoHeartbeat = autoHB != 0;
+			sendResponse(AckOk);
+			return;
           }
           break;
+		}
         case CmdHeartbeat:
           sendHeartbeat();
-          break;
+		  sendResponse(AckOk);
+          return;
         case CmdStopCtrl:
           sendStopControl();
-          break;
+		  sendResponse(AckOk);
+          return;
         case CmdSwitchCam: {
-          if(Serial.available() > 0){
-            sendSwitchCamera(Serial.read());
+		  uint8_t cam;
+          if(readCommand(&cam, sizeof(cam)) == sizeof(cam)){
+            if(sendSwitchCamera(cam)){
+			  return;
+			}
           }
           break;
         }
         case CmdSetFlyParams: {
-          int r = Serial.available() >= sizeof(flyData) ? Serial.readBytes(flyData, sizeof(flyData)) : -1;
-          if (r == sizeof(flyData)) {
+          if (readCommand(flyData, sizeof(flyData)) == sizeof(flyData)) {
             memcpy(&flyCmd.flyParams, flyData, sizeof(flyData));
             sendFlyCommand();
+			sendResponse(AckOk);
+			return;
           }
           break;
         }
         default:
           break;
     }
+	sendResponse(AckKo);
   }
 
   void forwardDroneData() {
@@ -182,7 +224,7 @@ public:
     if (packetSize > 0) {
       const int len = udp.read(droneData, min(packetSize, int(sizeof(droneData))));
       if(len > 0){
-        Serial.write(droneData, len);
+        sendResponse(DroneData, droneData, len);
       }
     }
   }
@@ -194,9 +236,19 @@ private:
     udp.endPacket();
   }
   
-  // STANDARD COMMANDS
-  // CMD_PHOTO_ACK[] = {9, 1};
-  // CMD_VIDEO_ACK[] = {9, 2};
+  void sendResponse(uint8_t type, const uint8_t *data = 0, size_t length = 0) {
+	Serial.write(&type, 1);
+	if(data && length > 0){
+	  Serial.write(data, length);
+	}
+  }
+  
+  int readCommand(uint8_t *data, size_t length) {
+	if(Serial.available() <= 0){
+	  return 0;
+	}
+	return Serial.readBytes(data, length);
+  }
 
   WiFiUDP udp;
   TFT_eSPI tft = TFT_eSPI();
