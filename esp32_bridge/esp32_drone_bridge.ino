@@ -19,15 +19,13 @@
 #define SERIAL_BAUD 115200
 
 // ===== TIMING =====
-#define CONNECT_INTERVAL 3000
+#define CONNECTION_TIMEOUT 3000
 #define HEARTBEAT_INTERVAL 1000
 
 // ===== WIFI =====
 static inline bool isConnected() { return WiFi.status() == WL_CONNECTED; }
 
 // ===== TYPES =====
-typedef unsigned long Time_t;
-
 enum FlyControllerFlags {
   FastFly = 1 << 0,
   FastDrop = 1 << 1,
@@ -135,8 +133,7 @@ public:
     FlyCmd cmd = flyCmd;
     cmd.flyParams.normalize();
     cmd.calculateCrc();
-    memcpy(cmdData, &cmd, sizeof(cmd));
-    sendCommand(cmdData, sizeof(cmdData));
+    sendCommand((const uint8_t *)&cmd, sizeof(cmd));
   }
 
   void parseUserCmd() {
@@ -168,9 +165,9 @@ public:
           break;
         }
         case CmdSetFlyParams: {
-          int r = Serial.available() >= sizeof(FlyParams) ? Serial.readBytes(cmdData, sizeof(FlyParams)) : -1;
-          if (r == sizeof(FlyParams)) {
-            memcpy(&flyCmd.flyParams, cmdData, sizeof(FlyParams));
+          int r = Serial.available() >= sizeof(flyData) ? Serial.readBytes(flyData, sizeof(flyData)) : -1;
+          if (r == sizeof(flyData)) {
+            memcpy(&flyCmd.flyParams, flyData, sizeof(flyData));
             sendFlyCommand();
           }
           break;
@@ -204,12 +201,13 @@ private:
   WiFiUDP udp;
   TFT_eSPI tft = TFT_eSPI();
   FlyCmd flyCmd;
-  uint8_t cmdData[sizeof(FlyCmd)];
+  uint8_t flyData[sizeof(FlyParams)];
   uint8_t droneData[DRONE_BUFF_SIZE];
 };
 
 // ===== GLOBAL VARIABLES =====
 DroneController droneCtrl;
+uint32_t counter = 0;
 
 // ===== SETUP =====
 void setup() {
@@ -223,7 +221,6 @@ void setup() {
 }
 
 // ===== MAIN LOOP =====
-uint32_t counter = 0;
 void loop() {
   if(!isConnected()){
     droneCtrl.setConnection(false);
@@ -231,7 +228,7 @@ void loop() {
     static const int maxAttempts = 100;
     WiFi.begin(DRONE_SSID, DRONE_PASSWORD);  
     for (int attempts = 0; !isConnected() && attempts < maxAttempts; attempts++) {
-      delay(CONNECT_INTERVAL / maxAttempts);
+      delay(CONNECTION_TIMEOUT / maxAttempts);
     }
     if(!isConnected()){
       return;
