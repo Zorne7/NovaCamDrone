@@ -128,10 +128,18 @@ def main():
     for i in range(10):
         drone.set_fly_params(throttle=200)
         time.sleep(0.1)
+    
+    for i in range(10):
+        drone.set_fly_params(flags=1)
+        time.sleep(0.1)
 
     print("\n=== Hover ===")
     for i in range(10):
         drone.set_fly_params(throttle=128)
+        time.sleep(0.1)
+        
+    for i in range(10):
+        drone.set_fly_params(flags=2)
         time.sleep(0.1)
 
     print("\n=== Switch Camera ===")
