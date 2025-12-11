@@ -23,8 +23,9 @@ public class ChannelCoroutine<E> extends AbstractCoroutine<Unit> implements Chan
     private final Channel<E> _channel;
 
     @Override // kotlinx.coroutines.channels.SendChannel
-    public boolean close(Throwable cause) {
-        return this._channel.close(cause);
+    /* renamed from: close */
+    public boolean cancel(Throwable cause) {
+        return this._channel.cancel(cause);
     }
 
     @Override // kotlinx.coroutines.channels.ReceiveChannel

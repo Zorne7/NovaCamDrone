@@ -126,7 +126,7 @@ public class UdpComm {
         this.recvDataThread.running = true;
     }
 
-    public void send(byte[] bArr) {
+    public void send(byte[] bArr) throws InterruptedException {
         SendDataThread sendDataThread = this.sendDataThread;
         if (sendDataThread == null || !sendDataThread.running || bArr == null || bArr.length <= 0) {
             return;

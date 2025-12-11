@@ -25,7 +25,7 @@ public class MainActivity extends BaseActivity {
     private long mBackPressedTimes;
 
     @Override // com.yls.nova.base.BaseActivity, androidx.fragment.app.FragmentActivity, androidx.activity.ComponentActivity, androidx.core.app.ComponentActivity, android.app.Activity
-    protected void onCreate(Bundle bundle) {
+    protected void onCreate(Bundle bundle) throws IllegalStateException {
         super.onCreate(bundle);
         setContentView(C0549R.layout.activity_main);
         getWindow().addFlags(128);

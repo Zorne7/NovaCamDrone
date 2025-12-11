@@ -1571,7 +1571,7 @@ public class IjkVideoView extends FrameLayout implements MediaController.MediaPl
         invalidate();
     }
 
-    public void stopPlayback() {
+    public void stopPlayback() throws IllegalStateException {
         IMediaPlayer iMediaPlayer = this.mMediaPlayer;
         if (iMediaPlayer != null) {
             iMediaPlayer.stop();
@@ -1799,7 +1799,7 @@ public class IjkVideoView extends FrameLayout implements MediaController.MediaPl
     }
 
     @Override // android.widget.MediaController.MediaPlayerControl
-    public void start() {
+    public void start() throws IllegalStateException {
         if (isInPlaybackState()) {
             this.mMediaPlayer.start();
             this.mCurrentState = 3;
@@ -2233,11 +2233,11 @@ public class IjkVideoView extends FrameLayout implements MediaController.MediaPl
         return this.mEnableBackgroundPlay;
     }
 
-    public void enterBackground() {
+    public void enterBackground() throws IllegalStateException {
         MediaPlayerService.setMediaPlayer(this.mMediaPlayer);
     }
 
-    public void stopBackgroundPlay() {
+    public void stopBackgroundPlay() throws IllegalStateException {
         MediaPlayerService.setMediaPlayer(null);
     }
 

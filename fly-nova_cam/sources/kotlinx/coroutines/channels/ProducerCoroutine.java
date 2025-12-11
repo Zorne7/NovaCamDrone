@@ -27,7 +27,7 @@ final class ProducerCoroutine<E> extends ChannelCoroutine<E> implements Producer
 
     @Override // kotlinx.coroutines.AbstractCoroutine
     protected void onCancelled(Throwable cause, boolean handled) {
-        if (get_channel().close(cause) || handled) {
+        if (get_channel().cancel(cause) || handled) {
             return;
         }
         CoroutineExceptionHandlerKt.handleCoroutineException(getContext(), cause);

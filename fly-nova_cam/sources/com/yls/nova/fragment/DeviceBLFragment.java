@@ -537,7 +537,7 @@ public class DeviceBLFragment extends BaseFragment implements View.OnClickListen
     }
 
     @Override // androidx.fragment.app.Fragment
-    public void onDetach() {
+    public void onDetach() throws InterruptedException {
         super.onDetach();
         if (this.mFlyController.isControlMode()) {
             updateModeUI();
@@ -723,7 +723,7 @@ public class DeviceBLFragment extends BaseFragment implements View.OnClickListen
     }
 
     @Override // android.widget.AdapterView.OnItemClickListener
-    public void onItemClick(AdapterView<?> adapterView, View view, int i, long j) throws IllegalStateException, IOException {
+    public void onItemClick(AdapterView<?> adapterView, View view, int i, long j) throws IllegalStateException, InterruptedException, IOException {
         if (this.adapter == null || getActivity() == null) {
             return;
         }
@@ -1070,7 +1070,7 @@ public class DeviceBLFragment extends BaseFragment implements View.OnClickListen
         }
     }
 
-    private void updateModeUI() {
+    private void updateModeUI() throws InterruptedException {
         boolean zIsControlMode = this.mFlyController.isControlMode();
         this.adapter.setControlMode(!r1.isControlMode());
         this.adapter.notifyDataSetChanged();
@@ -1243,7 +1243,7 @@ public class DeviceBLFragment extends BaseFragment implements View.OnClickListen
         }
 
         @Override // com.yls.nova.interfaces.OnSocketListener
-        public void onReceiver(byte[] bArr) throws NumberFormatException {
+        public void onReceiver(byte[] bArr) throws InterruptedException, NumberFormatException {
             if (bArr.length >= 1) {
                 DeviceBLFragment.this.setResolution(bArr[0]);
             }

@@ -15,7 +15,7 @@ import kotlinx.coroutines.internal.DispatchedContinuationKt;
 public final class YieldKt {
     public static final Object yield(Continuation<? super Unit> continuation) {
         Object coroutine_suspended;
-        CoroutineContext context = continuation.getContext();
+        CoroutineContext context = continuation.get$context();
         JobKt.ensureActive(context);
         Continuation continuationIntercepted = IntrinsicsKt.intercepted(continuation);
         DispatchedContinuation dispatchedContinuation = continuationIntercepted instanceof DispatchedContinuation ? (DispatchedContinuation) continuationIntercepted : null;

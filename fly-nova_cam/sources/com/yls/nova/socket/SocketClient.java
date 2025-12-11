@@ -60,7 +60,7 @@ public class SocketClient {
     };
     private final IjkVideoView.IVideoView.OnCompletionListener mPlayerCompletionListener = new IjkVideoView.IVideoView.OnCompletionListener() { // from class: com.yls.nova.socket.SocketClient.3
         @Override // tv.danmaku.ijk.media.widget.IjkVideoView.IVideoView.OnCompletionListener
-        public void onCompletion(IjkVideoView ijkVideoView) {
+        public void onCompletion(IjkVideoView ijkVideoView) throws IllegalStateException {
             SocketClient.this.mVideoView.stopPlayback();
             SocketClient.this.mVideoView.release(true);
             SocketClient.this.mVideoView.stopBackgroundPlay();
@@ -167,12 +167,12 @@ public class SocketClient {
         }
 
         @Override // java.util.TimerTask, java.lang.Runnable
-        public void run() {
+        public void run() throws InterruptedException {
             SocketClient.this.debugSend(new byte[]{1, 1});
         }
     }
 
-    public void debugSend(byte[] bArr) {
+    public void debugSend(byte[] bArr) throws InterruptedException {
         this.sendLock.lock();
         UdpComm udpComm = this.udpComm;
         if (udpComm != null) {
@@ -206,7 +206,7 @@ public class SocketClient {
         return ijkVideoView != null && ijkVideoView.isPlaying();
     }
 
-    public void switchCamera() {
+    public void switchCamera() throws InterruptedException {
         byte[] bArr;
         if (this.isSwitchingCamera) {
             return;
@@ -214,7 +214,7 @@ public class SocketClient {
         if (this.switchCameraReset == 2) {
             this.mVideoView.post(new Runnable() { // from class: com.yls.nova.socket.SocketClient.4
                 @Override // java.lang.Runnable
-                public void run() {
+                public void run() throws IllegalStateException {
                     SocketClient.this.mVideoView.stopPlayback();
                     SocketClient.this.mVideoView.release(true);
                     SocketClient.this.mVideoView.stopBackgroundPlay();
@@ -234,14 +234,14 @@ public class SocketClient {
             this.isSwitchingCamera = true;
             this.mVideoView.post(new Runnable() { // from class: com.yls.nova.socket.SocketClient$$ExternalSyntheticLambda0
                 @Override // java.lang.Runnable
-                public final void run() {
+                public final void run() throws IllegalStateException {
                     this.f$0.m552lambda$switchCamera$2$comylsnovasocketSocketClient();
                 }
             });
         } else if (i == 2) {
             this.mVideoView.postDelayed(new Runnable() { // from class: com.yls.nova.socket.SocketClient.5
                 @Override // java.lang.Runnable
-                public void run() {
+                public void run() throws IllegalStateException {
                     SocketClient.this.mVideoView.setRender(2);
                     SocketClient.this.mVideoView.setAspectRatio(3);
                     SocketClient.this.mVideoView.setVideoPath(SocketClient.this.mVideoPath);
@@ -253,14 +253,14 @@ public class SocketClient {
     }
 
     /* renamed from: lambda$switchCamera$2$com-yls-nova-socket-SocketClient, reason: not valid java name */
-    /* synthetic */ void m552lambda$switchCamera$2$comylsnovasocketSocketClient() {
+    /* synthetic */ void m552lambda$switchCamera$2$comylsnovasocketSocketClient() throws IllegalStateException {
         this.mVideoView.setRender(2);
         this.mVideoView.setAspectRatio(3);
         this.mVideoView.setVideoPath(this.mVideoPath);
         this.mVideoView.start();
     }
 
-    public void start() {
+    public void start() throws IllegalStateException {
         IjkVideoView ijkVideoView = this.mVideoView;
         if (ijkVideoView != null) {
             ijkVideoView.setRender(2);
@@ -270,7 +270,7 @@ public class SocketClient {
         }
     }
 
-    public void stop() {
+    public void stop() throws IllegalStateException {
         IjkVideoView ijkVideoView = this.mVideoView;
         if (ijkVideoView != null) {
             if (!ijkVideoView.isBackgroundPlayEnabled()) {
@@ -286,27 +286,27 @@ public class SocketClient {
     private void stopAndRestartPlayback() {
         this.mVideoView.post(new Runnable() { // from class: com.yls.nova.socket.SocketClient$$ExternalSyntheticLambda2
             @Override // java.lang.Runnable
-            public final void run() {
+            public final void run() throws IllegalStateException {
                 this.f$0.m550lambda$stopAndRestartPlayback$3$comylsnovasocketSocketClient();
             }
         });
         this.mVideoView.postDelayed(new Runnable() { // from class: com.yls.nova.socket.SocketClient$$ExternalSyntheticLambda3
             @Override // java.lang.Runnable
-            public final void run() {
+            public final void run() throws IllegalStateException {
                 this.f$0.m551lambda$stopAndRestartPlayback$4$comylsnovasocketSocketClient();
             }
         }, 500L);
     }
 
     /* renamed from: lambda$stopAndRestartPlayback$3$com-yls-nova-socket-SocketClient, reason: not valid java name */
-    /* synthetic */ void m550lambda$stopAndRestartPlayback$3$comylsnovasocketSocketClient() {
+    /* synthetic */ void m550lambda$stopAndRestartPlayback$3$comylsnovasocketSocketClient() throws IllegalStateException {
         this.mVideoView.stopPlayback();
         this.mVideoView.release(true);
         this.mVideoView.stopBackgroundPlay();
     }
 
     /* renamed from: lambda$stopAndRestartPlayback$4$com-yls-nova-socket-SocketClient, reason: not valid java name */
-    /* synthetic */ void m551lambda$stopAndRestartPlayback$4$comylsnovasocketSocketClient() {
+    /* synthetic */ void m551lambda$stopAndRestartPlayback$4$comylsnovasocketSocketClient() throws IllegalStateException {
         this.mVideoView.setRender(2);
         this.mVideoView.setAspectRatio(3);
         this.mVideoView.setVideoPath(this.mVideoPath);

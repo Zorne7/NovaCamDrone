@@ -47,7 +47,7 @@ public class FlyController {
         this.mHandlerRef = new WeakReference<>(handler);
     }
 
-    public void setController(boolean z) {
+    public void setController(boolean z) throws InterruptedException {
         this.isControlMode = z;
         if (z) {
             if (this.mFlyControlTimer == null) {
@@ -80,7 +80,7 @@ public class FlyController {
         /*
             Code decompiled incorrectly, please refer to instructions dump.
         */
-        public void run() {
+        public void run() throws InterruptedException {
             int i;
             ?? r0 = FlyController.this.isFastFly;
             int i2 = r0;
