@@ -1,0 +1,35 @@
+Signature-Version: 1.0
+Created-By: 1.0 (Android)
+SHA1-Digest-Manifest: Oe7/3MX5E+Pr1f0lntzvnYzyquY=
+X-Android-APK-Signed: 2, 3
+
+Name: AndroidManifest.xml
+SHA1-Digest: 6xoQUq8/yjYN4NgaPpYL70djWOg=
+
+Name: lib/arm64-v8a/libijkffmpeg.so
+SHA1-Digest: eKa++PcyKuMXJbPglpPNGFsDMAE=
+
+Name: lib/arm64-v8a/libijkplayer.so
+SHA1-Digest: FUxxXHE14kuBlvafd7QUlWUlSPw=
+
+Name: lib/arm64-v8a/libijksdl.so
+SHA1-Digest: auBW3IYIoN7XbDSQYWWtwUowIRE=
+
+Name: lib/arm64-v8a/liblib_gesture.so
+SHA1-Digest: d2r81gFl1XFGXcv4eKKkYX5Y3Ss=
+
+Name: lib/arm64-v8a/libmy_log_wrapper.so
+SHA1-Digest: OWJ8ydz5M9AdBv5ls3wbtlTHq6Q=
+
+Name: lib/arm64-v8a/libopencv_java3.so
+SHA1-Digest: DheMcZpUe2csFAQjIBoRDP2m2uQ=
+
+Name: lib/arm64-v8a/libuav_gl.so
+SHA1-Digest: lLISfXdLS1enav9mWeCegSz7Swg=
+
+Name: lib/arm64-v8a/libuav_tc.so
+SHA1-Digest: gNN42At8MRjIToBplCQx+wbKGSs=
+
+Name: stamp-cert-sha256
+SHA1-Digest: Bs40BvDZ1xrbgQrPTD2x5w/NfHQ=
+

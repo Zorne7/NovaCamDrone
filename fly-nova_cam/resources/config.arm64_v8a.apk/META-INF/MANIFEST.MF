@@ -1,0 +1,32 @@
+Manifest-Version: 1.0
+
+Name: AndroidManifest.xml
+SHA1-Digest: qIoA5um3tTCIIad/gepnAjydtWU=
+
+Name: lib/arm64-v8a/libijkffmpeg.so
+SHA1-Digest: 8VX/Vs4/byRdFAx/chGREvdAtQo=
+
+Name: lib/arm64-v8a/libijkplayer.so
+SHA1-Digest: XxbjNpRQHCBeDTmmk/vWxRgzpwE=
+
+Name: lib/arm64-v8a/libijksdl.so
+SHA1-Digest: jvNgqmzIL8+irbtxi6X6Qe9CKps=
+
+Name: lib/arm64-v8a/liblib_gesture.so
+SHA1-Digest: BynBPqckuCjwa2FNzR8J+gvTdFI=
+
+Name: lib/arm64-v8a/libmy_log_wrapper.so
+SHA1-Digest: POGBp0Wxykq+CxiZgT6NDYTmcdQ=
+
+Name: lib/arm64-v8a/libopencv_java3.so
+SHA1-Digest: t6KVZKZkSpWMydfclGHfGDGFgN4=
+
+Name: lib/arm64-v8a/libuav_gl.so
+SHA1-Digest: guGaBHkl8W0xVz/K65cxtIwnCes=
+
+Name: lib/arm64-v8a/libuav_tc.so
+SHA1-Digest: YXMjCSVlV0CwE8qhRjOQNIuJztY=
+
+Name: stamp-cert-sha256
+SHA1-Digest: 5vTkm69vqAbusD/fho7oWwc7j+I=
+
