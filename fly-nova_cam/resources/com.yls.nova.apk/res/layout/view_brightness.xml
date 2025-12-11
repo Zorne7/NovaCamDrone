@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:background="@drawable/bg_volume"
+    android:padding="5dp"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content">
+    <com.yls.nova.libs.verticalseekbar.VerticalSeekBarWrapper
+        android:padding="5dp"
+        android:layout_width="wrap_content"
+        android:layout_height="120dp">
+        <com.yls.nova.libs.verticalseekbar.VerticalSeekBar
+            android:id="@+id/view_brightness_seek_progress"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:maxHeight="8dp"
+            android:progressDrawable="@drawable/seek_bar_progress_style_1"
+            android:minHeight="8dp"
+            android:thumb="@drawable/seek_bar_thumb"
+            android:thumbOffset="0dp"
+            app:seekBarRotation="CW270"/>
+    </com.yls.nova.libs.verticalseekbar.VerticalSeekBarWrapper>
+    <ImageView
+        android:padding="3dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@mipmap/ic_brightness"
+        android:contentDescription="@null"/>
+</LinearLayout>

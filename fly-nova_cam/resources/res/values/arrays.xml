@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <array name="browse_file_list">
+        <item>@string/local_mode_picture</item>
+        <item>@string/local_mode_video</item>
+    </array>
+    <array name="device_top_list">
+        <item>@string/tab_turn_back</item>
+        <item>@string/tab_take_photo</item>
+        <item>@string/tab_record_video</item>
+        <item>@string/tab_media_library</item>
+        <item>@string/tab_power</item>
+        <item>@string/tab_fixed_height</item>
+        <item>@string/tab_turn_180</item>
+        <item>@string/tab_control_mode</item>
+        <item>@string/tab_down_menu</item>
+    </array>
+    <array name="device_top_list_var_mode">
+        <item>@string/tab_take_photo</item>
+        <item>@string/tab_record_video</item>
+        <item>@string/tab_media_library</item>
+        <item>@string/tab_turn_back</item>
+        <item>@string/tab_take_photo</item>
+        <item>@string/tab_record_video</item>
+        <item>@string/tab_media_library</item>
+        <item>@string/tab_turn_back</item>
+    </array>
+    <array name="filter_list">
+        <item>@string/filter_artwork</item>
+        <item>@string/filter_color_blend</item>
+        <item>@string/filter_bilateral</item>
+        <item>@string/filter_sepia</item>
+        <item>@string/filter_bulge_distortion</item>
+        <item>@string/filter_color_invert</item>
+        <item>@string/filter_emboss</item>
+        <item>@string/filter_swirl</item>
+        <item>@string/filter_sketch</item>
+        <item>@string/filter_glass_sphere</item>
+    </array>
+    <array name="settings_list_google">
+        <item>@string/right_hand_mode</item>
+        <item>@string/language_setting</item>
+        <item>@string/app_version</item>
+    </array>
+</resources>

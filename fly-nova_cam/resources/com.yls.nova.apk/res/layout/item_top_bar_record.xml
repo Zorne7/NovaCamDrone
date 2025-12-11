@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="55dp">
+    <ImageView
+        android:id="@+id/iv_top_bar_item"
+        android:layout_width="45dp"
+        android:layout_height="45dp"
+        android:scaleType="fitXY"
+        android:contentDescription="@null"/>
+    <LinearLayout
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:id="@+id/device_video_time_layout"
+        android:layout_width="45dp"
+        android:layout_height="match_parent"
+        android:layout_marginTop="42dp">
+        <TextView
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_yellow"
+            android:id="@+id/device_video_time_tv"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"/>
+    </LinearLayout>
+</RelativeLayout>
