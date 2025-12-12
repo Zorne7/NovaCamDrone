@@ -30,9 +30,12 @@ public:
   }
 
   bool isConnected() const { return WiFi.status() == WL_CONNECTED; }
+  void disconnectFromDrone() {
+    udp.stop();
+    WiFi.disconnect(true);
+  }
   bool connectToDrone() {
     static const int maxAttempts = 10;
-    udp.stop();
     WiFi.begin(connParams.wifiSsid, connParams.wifiPassw);  
     for (int attempts = 0; !isConnected() && attempts < maxAttempts; attempts++) {
       delay(connParams.timeout / maxAttempts);
@@ -53,6 +56,7 @@ public:
     switch (clientCmd.type){
 
       case TypeSetConnection:
+        disconnectFromDrone();
         connParams = clientCmd.data.connParams;
         ok = true;
         break;
@@ -135,6 +139,7 @@ void loop() {
 
   bool connected = bridge.isConnected();
   if(!connected){
+    bridge.disconnectFromDrone();
     connected = bridge.connectToDrone();
   }
 
