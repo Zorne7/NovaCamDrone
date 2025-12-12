@@ -217,8 +217,8 @@ void MainWindow::sendFlyCmd()
 {
     ClientCmd cmd;
     cmd.type = TypeFlyCmd;
-    flyParams.normalize();
     cmd.data.flyCmd.flyParams = flyParams;
+    cmd.data.flyCmd.flyParams.normalize();
     cmd.data.flyCmd.crc = calculateCrc(&cmd.data.flyCmd.flyParams, sizeof(cmd.data.flyCmd.flyParams));
     sendCmd(cmd);
 }

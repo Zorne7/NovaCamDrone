@@ -127,7 +127,7 @@ static inline crc_t calculateCrc(const void *data, size_t len)
 {
     crc_t crc = 0x00;
     for (int i = 0; i < len; i++) {
-        crc = crc ^ *(const uint8_t *) data;
+        crc = crc ^ ((const uint8_t *)data)[i];
     }
     return crc;
 }

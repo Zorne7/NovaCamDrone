@@ -275,6 +275,13 @@
             </property>
            </widget>
           </item>
+          <item row="1" column="3">
+           <widget class="QPushButton" name="resetBtn">
+            <property name="text">
+             <string>Reset All</string>
+            </property>
+           </widget>
+          </item>
          </layout>
         </widget>
        </item>
@@ -465,13 +472,6 @@
             </property>
             <property name="readOnly">
              <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="10">
-           <widget class="QPushButton" name="resetBtn">
-            <property name="text">
-             <string>Reset</string>
             </property>
            </widget>
           </item>
