@@ -1,10 +1,23 @@
 #include "mainwindow.h"
-#include "../protocol.h"
 #include "./ui_mainwindow.h"
 
+#include <QEventLoop>
 #include <QLineEdit>
+#include <QMetaEnum>
 #include <QVBoxLayout>
 #include <QWidget>
+
+static constexpr int CONN_TIMEOUT = 3000;
+static constexpr int HB_TIMEOUT = 1000;
+
+void msSleep(int ms)
+{
+    QEventLoop loop;
+    QTimer timer;
+    QObject::connect(&timer, &QTimer::timeout, &loop, &QEventLoop::quit);
+    timer.start(ms);
+    loop.exec();
+}
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -12,30 +25,32 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
-    // Popola la combo delle porte disponibili
     for (const QSerialPortInfo &info : QSerialPortInfo::availablePorts()) {
         ui->portSelector->addItem(info.portName());
     }
 
-    // Popola la combo dei baud rate
     QList<int> baudRates = {0, 9600, 19200, 38400, 57600, 115200, 921600};
     for (int rate : baudRates) {
         ui->baudSelector->addItem(QString::number(rate), rate);
     }
     ui->baudSelector->setCurrentText("0");
 
-    // Collega i pulsanti agli slot
+    timerHb.setInterval(HB_TIMEOUT);
+    timerHb.setSingleShot(false);
+    connect(&timerHb, &QTimer::timeout, this, &MainWindow::sendHeartbeat);
+    connect(ui->btnHeartbeatEn, &QPushButton::clicked, this, &MainWindow::setHeartbeat);
+
     connect(ui->btnSetConn, &QPushButton::clicked, this, &MainWindow::sendSetConnection);
     connect(ui->btnGetConn, &QPushButton::clicked, this, &MainWindow::sendGetConnection);
     connect(ui->btnHeartbeat, &QPushButton::clicked, this, &MainWindow::sendHeartbeat);
     connect(ui->btnFly, &QPushButton::clicked, this, &MainWindow::sendFlyCmd);
+    connect(ui->btnEnable, &QPushButton::clicked, this, &MainWindow::sendEnableControl);
     connect(ui->btnStop, &QPushButton::clicked, this, &MainWindow::sendStopControl);
     connect(ui->btnCamFront, &QPushButton::clicked, this, &MainWindow::sendSwitchCamFront);
     connect(ui->btnCamBack, &QPushButton::clicked, this, &MainWindow::sendSwitchCamBack);
     connect(ui->btnAckPhoto, &QPushButton::clicked, this, &MainWindow::sendAckPhoto);
     connect(ui->btnAckVideo, &QPushButton::clicked, this, &MainWindow::sendAckVideo);
 
-    // Collega le combo per apertura seriale
     connect(ui->portSelector, &QComboBox::currentTextChanged, this, &MainWindow::openSerial);
     connect(ui->baudSelector, &QComboBox::currentTextChanged, this, &MainWindow::openSerial);
 }
@@ -68,10 +83,25 @@ void MainWindow::openSerial()
     }
 }
 
+void MainWindow::sendCmd(const ClientCmd &cmd)
+{
+    if (!serial.isOpen()) {
+        ui->log->append("Open serial before send command");
+        return;
+    }
+    const QString cmdType = "0x" + QString::number(cmd.type, 16);
+    bool ok = serial.write(reinterpret_cast<const char *>(&cmd), sizeof(cmd)) == sizeof(cmd);
+    if (ok) {
+        serial.flush();
+        // ui->log->append("Cmd " + cmdType + " sent");
+    } else {
+        ui->log->append("Error sending cmd " + cmdType);
+    }
+}
+
 void MainWindow::sendSetConnection()
 {
     ClientCmd cmd;
-    cmd.type = TypeSetConnection;
 
     ConnectionParams params{};
     strncpy(params.wifiSsid, ui->ssidEdit->text().toStdString().c_str(), sizeof(params.wifiSsid));
@@ -79,20 +109,30 @@ void MainWindow::sendSetConnection()
     strncpy(params.ip, ui->ipEdit->text().toStdString().c_str(), sizeof(params.ip));
     params.recvPort = ui->recvPortEdit->text().toUShort();
     params.sendPort = ui->sendPortEdit->text().toUShort();
-    params.timeout = 1000;
+    params.timeout = CONN_TIMEOUT;
 
+    cmd.type = TypeSetConnection;
     cmd.data.connParams = params;
 
-    serial.write(reinterpret_cast<const char *>(&cmd), sizeof(cmd));
-    ui->log->append("SetConnection sent");
+    sendCmd(cmd);
 }
 
 void MainWindow::sendGetConnection()
 {
     ClientCmd cmd;
     cmd.type = TypeGetConnection;
-    serial.write(reinterpret_cast<const char *>(&cmd), sizeof(cmd));
-    ui->log->append("GetConnection sent");
+    sendCmd(cmd);
+}
+
+void MainWindow::setHeartbeat()
+{
+    if (timerHb.isActive()) {
+        timerHb.stop();
+        ui->log->append("HB disabled");
+    } else {
+        timerHb.start();
+        ui->log->append("HB enabled");
+    }
 }
 
 void MainWindow::sendHeartbeat()
@@ -100,9 +140,7 @@ void MainWindow::sendHeartbeat()
     ClientCmd cmd;
     cmd.type = TypeDroneCmd;
     cmd.data.droneCmd = DroneCmd_HEARTBEAT;
-
-    serial.write(reinterpret_cast<const char *>(&cmd), sizeof(cmd));
-    ui->log->append("Heartbeat sent");
+    sendCmd(cmd);
 }
 
 void MainWindow::sendFlyCmd()
@@ -119,8 +157,47 @@ void MainWindow::sendFlyCmd()
     cmd.type = TypeFlyCmd;
     cmd.data.flyCmd.flyParams = fly;
 
-    serial.write(reinterpret_cast<const char *>(&cmd), sizeof(cmd));
-    ui->log->append("FlyCmd sent");
+    sendCmd(cmd);
+}
+
+void MainWindow::sendEnableControl()
+{
+    ClientCmd cmd;
+    cmd.type = TypeFlyCmd;
+
+    FlyParams fly;
+    fly.controlByte1 = FLY_PAR_NEUTRAL;
+    fly.controlByte2 = FLY_PAR_NEUTRAL;
+    fly.controlAccelerator = 200;
+    fly.controlTurn = FLY_PAR_NEUTRAL;
+    fly.flags = None;
+    fly.normalize();
+
+    cmd.data.flyCmd.flyParams = fly;
+
+    for (int i = 0; i < 10; i++) {
+        sendCmd(cmd);
+        msSleep(100);
+    }
+
+    fly.controlAccelerator = FLY_PAR_NEUTRAL;
+    fly.flags = FastFly;
+    fly.normalize();
+
+    cmd.data.flyCmd.flyParams = fly;
+
+    for (int i = 0; i < 10; i++) {
+        sendCmd(cmd);
+        msSleep(100);
+    }
+
+    fly.flags = None;
+    fly.normalize();
+
+    for (int i = 0; i < 10; i++) {
+        sendCmd(cmd);
+        msSleep(100);
+    }
 }
 
 void MainWindow::sendStopControl()
@@ -128,8 +205,7 @@ void MainWindow::sendStopControl()
     ClientCmd cmd;
     cmd.type = TypeDroneCmd;
     cmd.data.droneCmd = DroneCmd_STOP_CONTROL;
-    serial.write(reinterpret_cast<const char *>(&cmd), sizeof(cmd));
-    ui->log->append("Stop Control sent");
+    sendCmd(cmd);
 }
 
 void MainWindow::sendSwitchCamFront()
@@ -137,8 +213,7 @@ void MainWindow::sendSwitchCamFront()
     ClientCmd cmd;
     cmd.type = TypeDroneCmd;
     cmd.data.droneCmd = DroneCmd_SWITCH_CAM_FRONT;
-    serial.write(reinterpret_cast<const char *>(&cmd), sizeof(cmd));
-    ui->log->append("Switch Cam Front sent");
+    sendCmd(cmd);
 }
 
 void MainWindow::sendSwitchCamBack()
@@ -146,8 +221,7 @@ void MainWindow::sendSwitchCamBack()
     ClientCmd cmd;
     cmd.type = TypeDroneCmd;
     cmd.data.droneCmd = DroneCmd_SWITCH_CAM_BACK;
-    serial.write(reinterpret_cast<const char *>(&cmd), sizeof(cmd));
-    ui->log->append("Switch Cam Back sent");
+    sendCmd(cmd);
 }
 
 void MainWindow::sendAckPhoto()
@@ -155,8 +229,7 @@ void MainWindow::sendAckPhoto()
     ClientCmd cmd;
     cmd.type = TypeDroneCmd;
     cmd.data.droneCmd = DroneCmd_ACK_PHOTO;
-    serial.write(reinterpret_cast<const char *>(&cmd), sizeof(cmd));
-    ui->log->append("Ack Photo sent");
+    sendCmd(cmd);
 }
 
 void MainWindow::sendAckVideo()
@@ -164,8 +237,7 @@ void MainWindow::sendAckVideo()
     ClientCmd cmd;
     cmd.type = TypeDroneCmd;
     cmd.data.droneCmd = DroneCmd_ACK_VIDEO;
-    serial.write(reinterpret_cast<const char *>(&cmd), sizeof(cmd));
-    ui->log->append("Ack Video sent");
+    sendCmd(cmd);
 }
 
 void MainWindow::readSerial()
@@ -176,15 +248,17 @@ void MainWindow::readSerial()
 
         switch (resp.type) {
         case TypeAck:
-            ui->log->append(QString("Ack: %1").arg(resp.data.ack));
+            if (resp.data.ack == 0) {
+                ui->log->append(QString("Ack: %1").arg(resp.data.ack));
+            }
             break;
         case TypeConnectionStat:
             ui->log->append(QString("Connection: %1").arg(resp.data.connected));
             break;
         case TypeDroneTlm:
-            ui->log->append(QString("TLM: photo=%1 video=%2")
-                                .arg(resp.data.droneTlm.numPhoto)
-                                .arg(resp.data.droneTlm.numVideo));
+            // ui->log->append(QString("TLM: photo=%1 video=%2")
+            //                     .arg(resp.data.droneTlm.numPhoto)
+            //                     .arg(resp.data.droneTlm.numVideo));
             break;
         default:
             ui->log->append("Unknown response type: " + QString::number(resp.type));

@@ -7,6 +7,9 @@
 #include <QSerialPort>
 #include <QSerialPortInfo>
 #include <QTextEdit>
+#include <QTimer>
+
+#include "../protocol.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -25,8 +28,10 @@ private slots:
     void openSerial();
     void sendSetConnection();
     void sendGetConnection();
+    void setHeartbeat();
     void sendHeartbeat();
     void sendFlyCmd();
+    void sendEnableControl();
     void sendStopControl();
     void sendSwitchCamFront();
     void sendSwitchCamBack();
@@ -35,6 +40,9 @@ private slots:
     void readSerial();
 
 private:
+    void sendCmd(const ClientCmd &cmd);
+
+    QTimer timerHb;
     QSerialPort serial;
     Ui::MainWindow *ui;
 };

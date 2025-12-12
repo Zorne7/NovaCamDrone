@@ -18,6 +18,7 @@ public:
   void init() {
     Serial.begin(SERIAL_BAUD);
     WiFi.mode(WIFI_STA);
+    WiFi.setAutoReconnect(true);
     tft.init();
     tft.setRotation(1);
     tft.frameViewport(TFT_RED, 2);
@@ -47,6 +48,7 @@ public:
       return false;
     }
     udp.begin(connParams.recvPort);
+    return true;
   }
 
   void parseClientCmd() {
@@ -142,7 +144,6 @@ void loop() {
 
   bool connected = bridge.isConnected();
   if(!connected){
-    bridge.disconnectFromDrone();
     connected = bridge.connectToDrone();
   }
 

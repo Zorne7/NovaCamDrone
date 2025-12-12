@@ -6,31 +6,16 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>422</width>
-    <height>785</height>
+    <width>638</width>
+    <height>697</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Drone Controller</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <layout class="QVBoxLayout" name="verticalLayout">
-    <item>
-     <widget class="QGroupBox" name="serialBox">
-      <property name="title">
-       <string>Serial</string>
-      </property>
-      <layout class="QVBoxLayout" name="serialLayout">
-       <item>
-        <widget class="QComboBox" name="portSelector"/>
-       </item>
-       <item>
-        <widget class="QComboBox" name="baudSelector"/>
-       </item>
-      </layout>
-     </widget>
-    </item>
-    <item>
+   <layout class="QGridLayout" name="gridLayout">
+    <item row="1" column="1" colspan="2">
      <widget class="QGroupBox" name="connBox">
       <property name="title">
        <string>WiFi Connection</string>
@@ -44,7 +29,11 @@
         </widget>
        </item>
        <item row="0" column="1">
-        <widget class="QLineEdit" name="ssidEdit"/>
+        <widget class="QLineEdit" name="ssidEdit">
+         <property name="text">
+          <string>NOVA CAM DRONE-dc8d36</string>
+         </property>
+        </widget>
        </item>
        <item row="1" column="0">
         <widget class="QLabel" name="labelPass">
@@ -54,7 +43,11 @@
         </widget>
        </item>
        <item row="1" column="1">
-        <widget class="QLineEdit" name="passEdit"/>
+        <widget class="QLineEdit" name="passEdit">
+         <property name="text">
+          <string/>
+         </property>
+        </widget>
        </item>
        <item row="2" column="0">
         <widget class="QLabel" name="labelIP">
@@ -64,7 +57,11 @@
         </widget>
        </item>
        <item row="2" column="1">
-        <widget class="QLineEdit" name="ipEdit"/>
+        <widget class="QLineEdit" name="ipEdit">
+         <property name="text">
+          <string>192.168.1.1</string>
+         </property>
+        </widget>
        </item>
        <item row="3" column="0">
         <widget class="QLabel" name="labelRecv">
@@ -74,7 +71,11 @@
         </widget>
        </item>
        <item row="3" column="1">
-        <widget class="QLineEdit" name="recvPortEdit"/>
+        <widget class="QLineEdit" name="recvPortEdit">
+         <property name="text">
+          <string>8888</string>
+         </property>
+        </widget>
        </item>
        <item row="4" column="0">
         <widget class="QLabel" name="labelSend">
@@ -84,7 +85,11 @@
         </widget>
        </item>
        <item row="4" column="1">
-        <widget class="QLineEdit" name="sendPortEdit"/>
+        <widget class="QLineEdit" name="sendPortEdit">
+         <property name="text">
+          <string>7099</string>
+         </property>
+        </widget>
        </item>
        <item row="5" column="0">
         <widget class="QPushButton" name="btnSetConn">
@@ -103,12 +108,34 @@
       </layout>
      </widget>
     </item>
-    <item>
+    <item row="1" column="0">
+     <widget class="QGroupBox" name="serialBox">
+      <property name="title">
+       <string>Serial</string>
+      </property>
+      <layout class="QVBoxLayout" name="serialLayout">
+       <item>
+        <widget class="QComboBox" name="portSelector"/>
+       </item>
+       <item>
+        <widget class="QComboBox" name="baudSelector"/>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <item row="2" column="0">
      <widget class="QGroupBox" name="droneBox">
       <property name="title">
        <string>Drone Commands</string>
       </property>
       <layout class="QVBoxLayout" name="droneLayout">
+       <item>
+        <widget class="QPushButton" name="btnHeartbeatEn">
+         <property name="text">
+          <string>Enable/Disable Heartbeat</string>
+         </property>
+        </widget>
+       </item>
        <item>
         <widget class="QPushButton" name="btnHeartbeat">
          <property name="text">
@@ -124,6 +151,13 @@
         </widget>
        </item>
        <item>
+        <widget class="QPushButton" name="btnEnable">
+         <property name="text">
+          <string>Enable Control</string>
+         </property>
+        </widget>
+       </item>
+       <item>
         <widget class="QPushButton" name="btnStop">
          <property name="text">
           <string>Stop Control</string>
@@ -133,7 +167,7 @@
       </layout>
      </widget>
     </item>
-    <item>
+    <item row="2" column="1" colspan="2">
      <widget class="QGroupBox" name="camBox">
       <property name="title">
        <string>Camera Commands</string>
@@ -170,7 +204,7 @@
       </layout>
      </widget>
     </item>
-    <item>
+    <item row="4" column="0" colspan="3">
      <widget class="QTextEdit" name="log">
       <property name="readOnly">
        <bool>true</bool>
@@ -184,8 +218,8 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>422</width>
-     <height>21</height>
+     <width>638</width>
+     <height>25</height>
     </rect>
    </property>
   </widget>
