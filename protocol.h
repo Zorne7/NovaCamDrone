@@ -1,3 +1,6 @@
+#ifndef PROTOCOL_H
+#define PROTOCOL_H
+
 #include <stdint.h>
 
 #define MAX(a, b) (a > b ? a : b)
@@ -81,12 +84,14 @@ static constexpr int MIN_DRONE_TLM_SIZE = sizeof(DroneTlm) - sizeof(DroneTlm::da
 
 struct ConnectionParams
 {
-    char wifiSsid[25];
-    char wifiPassw[25];
-    char ip[15];
+    char wifiSsid[25] = "";
+    char wifiPassw[25] = "";
+    char ip[15] = "";
     uint16_t recvPort;
     uint16_t sendPort;
     uint16_t timeout = 1000;
+
+    bool valid() { return wifiSsid[0] != 0 && ip[0] != 0 && recvPort > 0 && sendPort > 0; }
 };
 
 struct ClientCmd
@@ -126,3 +131,5 @@ static inline crc_t calculateCrc(const void *data, size_t len)
     }
     return crc;
 }
+
+#endif // PROTOCOL_H

@@ -36,6 +36,9 @@ public:
   }
   bool connectToDrone() {
     static const int maxAttempts = 10;
+    if(!connParams.valid()){
+      return false;
+    }
     WiFi.begin(connParams.wifiSsid, connParams.wifiPassw);  
     for (int attempts = 0; !isConnected() && attempts < maxAttempts; attempts++) {
       delay(connParams.timeout / maxAttempts);
