@@ -150,10 +150,11 @@ void MainWindow::sendCmd(const ClientCmd &cmd)
         return;
     }
     const QString cmdType = "0x" + QString::number(cmd.type, 16);
-    bool ok = serial.write(reinterpret_cast<const char *>(&cmd), sizeof(cmd)) == sizeof(cmd);
+    const QByteArray data(reinterpret_cast<const char *>(&cmd), sizeof(cmd));
+    bool ok = serial.write(data) == data.size();
     if (ok) {
         serial.flush();
-        // ui->log->append("Cmd " + cmdType + " sent");
+        // ui->log->append("Cmd " + cmdType + " sent [" + QString::number(data.size()) + "]: " + data.toHex());
     } else {
         ui->log->append("Error sending cmd " + cmdType);
     }
