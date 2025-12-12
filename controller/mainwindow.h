@@ -34,14 +34,16 @@ private slots:
     void sendStopControl();
     void sendSwitchCamFront();
     void sendSwitchCamBack();
-    void sendAckPhoto();
-    void sendAckVideo();
 
 private:
     void sendCmd(const ClientCmd &cmd);
     void readSerial();
     void sendHeartbeat();
     void sendFlyCmd();
+    void sendAckPhoto();
+    void sendAckVideo();
+
+    void initCurrentValues();
 
     QTimer timerHb;
     QTimer timerFly;

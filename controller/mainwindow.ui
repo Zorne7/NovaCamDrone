@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>741</width>
-    <height>871</height>
+    <width>903</width>
+    <height>845</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -180,20 +180,6 @@
          </property>
         </widget>
        </item>
-       <item>
-        <widget class="QPushButton" name="btnAckPhoto">
-         <property name="text">
-          <string>Ack Photo</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QPushButton" name="btnAckVideo">
-         <property name="text">
-          <string>Ack Video</string>
-         </property>
-        </widget>
-       </item>
       </layout>
      </widget>
     </item>
@@ -218,10 +204,99 @@
              <number>128</number>
             </property>
             <property name="orientation">
-             <enum>Qt::Horizontal</enum>
+             <enum>Qt::Orientation::Horizontal</enum>
             </property>
             <property name="tickPosition">
-             <enum>QSlider::TicksBelow</enum>
+             <enum>QSlider::TickPosition::TicksBelow</enum>
+            </property>
+            <property name="tickInterval">
+             <number>10</number>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QGroupBox" name="groupBox_7">
+         <property name="title">
+          <string>Flags</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignmentFlag::AlignCenter</set>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_8">
+          <item row="0" column="0">
+           <widget class="QCheckBox" name="fastFlyCheck">
+            <property name="text">
+             <string>FastFly</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QCheckBox" name="fastDropCheck">
+            <property name="text">
+             <string>FastDrop</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="2">
+           <widget class="QCheckBox" name="emergStopCheck">
+            <property name="text">
+             <string>EmergencyStop</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="3">
+           <widget class="QCheckBox" name="noHeadCheck">
+            <property name="text">
+             <string>NoHead</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QCheckBox" name="circleTurnEndCheck">
+            <property name="text">
+             <string>CircleTurnEnd</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QCheckBox" name="unlockCheck">
+            <property name="text">
+             <string>Unlock</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="2">
+           <widget class="QCheckBox" name="gyroCorrCheck">
+            <property name="text">
+             <string>GyroCorrection</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item row="0" column="3" rowspan="3">
+        <widget class="QGroupBox" name="groupBox_5">
+         <property name="title">
+          <string/>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_6">
+          <item row="0" column="0">
+           <widget class="QSlider" name="accelSlider">
+            <property name="maximum">
+             <number>255</number>
+            </property>
+            <property name="value">
+             <number>128</number>
+            </property>
+            <property name="orientation">
+             <enum>Qt::Orientation::Vertical</enum>
+            </property>
+            <property name="tickPosition">
+             <enum>QSlider::TickPosition::TicksBelow</enum>
             </property>
             <property name="tickInterval">
              <number>10</number>
@@ -246,10 +321,10 @@
              <number>128</number>
             </property>
             <property name="orientation">
-             <enum>Qt::Horizontal</enum>
+             <enum>Qt::Orientation::Horizontal</enum>
             </property>
             <property name="tickPosition">
-             <enum>QSlider::TicksAbove</enum>
+             <enum>QSlider::TickPosition::TicksAbove</enum>
             </property>
             <property name="tickInterval">
              <number>10</number>
@@ -274,10 +349,10 @@
              <number>128</number>
             </property>
             <property name="orientation">
-             <enum>Qt::Vertical</enum>
+             <enum>Qt::Orientation::Vertical</enum>
             </property>
             <property name="tickPosition">
-             <enum>QSlider::TicksAbove</enum>
+             <enum>QSlider::TickPosition::TicksAbove</enum>
             </property>
             <property name="tickInterval">
              <number>10</number>
@@ -287,82 +362,116 @@
          </layout>
         </widget>
        </item>
-       <item row="0" column="3" rowspan="3">
-        <widget class="QGroupBox" name="groupBox_5">
+       <item row="3" column="0" colspan="4">
+        <widget class="QGroupBox" name="groupBox_8">
          <property name="title">
-          <string/>
+          <string>Current Values</string>
          </property>
-         <layout class="QGridLayout" name="gridLayout_6">
-          <item row="0" column="0">
-           <widget class="QSlider" name="accelSlider">
-            <property name="maximum">
-             <number>255</number>
-            </property>
-            <property name="value">
-             <number>128</number>
-            </property>
-            <property name="orientation">
-             <enum>Qt::Vertical</enum>
-            </property>
-            <property name="tickPosition">
-             <enum>QSlider::TicksBelow</enum>
-            </property>
-            <property name="tickInterval">
-             <number>10</number>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </widget>
-       </item>
-       <item row="1" column="1">
-        <widget class="QGroupBox" name="groupBox_7">
-         <property name="title">
-          <string>Flags</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignCenter</set>
-         </property>
-         <layout class="QGridLayout" name="gridLayout_8">
-          <item row="0" column="1">
-           <widget class="QCheckBox" name="fastDropCheck">
+         <layout class="QGridLayout" name="gridLayout_9">
+          <item row="0" column="4">
+           <widget class="QLabel" name="label_3">
             <property name="text">
-             <string>FastDrop</string>
+             <string>Accellerator:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="8">
+           <widget class="QLabel" name="label_5">
+            <property name="text">
+             <string>Flags:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="9">
+           <widget class="QLineEdit" name="flagsLine">
+            <property name="maximumSize">
+             <size>
+              <width>50</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="3">
+           <widget class="QLineEdit" name="control2Line">
+            <property name="maximumSize">
+             <size>
+              <width>50</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="6">
+           <widget class="QLabel" name="label_4">
+            <property name="text">
+             <string>Turn:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="5">
+           <widget class="QLineEdit" name="accellerLine">
+            <property name="maximumSize">
+             <size>
+              <width>50</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="0">
+           <widget class="QLabel" name="label">
+            <property name="text">
+             <string>Control1:</string>
             </property>
            </widget>
           </item>
           <item row="0" column="2">
-           <widget class="QCheckBox" name="emergStopCheck">
+           <widget class="QLabel" name="label_2">
             <property name="text">
-             <string>EmergencyStop</string>
+             <string>Control2:</string>
             </property>
            </widget>
           </item>
-          <item row="0" column="0">
-           <widget class="QCheckBox" name="fastFlyCheck">
-            <property name="text">
-             <string>FastFly</string>
+          <item row="0" column="1">
+           <widget class="QLineEdit" name="control1Line">
+            <property name="maximumSize">
+             <size>
+              <width>50</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="readOnly">
+             <bool>true</bool>
             </property>
            </widget>
           </item>
-          <item row="1" column="0">
-           <widget class="QCheckBox" name="noHeadCheck">
-            <property name="text">
-             <string>NoHead</string>
+          <item row="0" column="7">
+           <widget class="QLineEdit" name="turnLine">
+            <property name="maximumSize">
+             <size>
+              <width>50</width>
+              <height>16777215</height>
+             </size>
+            </property>
+            <property name="readOnly">
+             <bool>true</bool>
             </property>
            </widget>
           </item>
-          <item row="1" column="1">
-           <widget class="QCheckBox" name="unlockCheck">
+          <item row="0" column="10">
+           <widget class="QPushButton" name="resetBtn">
             <property name="text">
-             <string>Unlock</string>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="2">
-           <widget class="QCheckBox" name="gyroCorrCheck">
-            <property name="text">
-             <string>GyroCorrection</string>
+             <string>Reset</string>
             </property>
            </widget>
           </item>
@@ -386,7 +495,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>741</width>
+     <width>903</width>
      <height>25</height>
     </rect>
    </property>
