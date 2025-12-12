@@ -18,7 +18,7 @@ public:
   void init() {
     Serial.begin(SERIAL_BAUD);
     WiFi.mode(WIFI_STA);
-    WiFi.setAutoReconnect(true);
+    WiFi.setAutoReconnect(false);
     tft.init();
     tft.setRotation(1);
     tft.frameViewport(TFT_RED, 2);

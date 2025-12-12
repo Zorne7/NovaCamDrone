@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>638</width>
-    <height>697</height>
+    <width>741</width>
+    <height>871</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -15,138 +15,140 @@
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QGridLayout" name="gridLayout">
-    <item row="1" column="1" colspan="2">
-     <widget class="QGroupBox" name="connBox">
+    <item row="0" column="0" colspan="2">
+     <widget class="QGroupBox" name="groupBox">
       <property name="title">
-       <string>WiFi Connection</string>
+       <string>Connection</string>
       </property>
-      <layout class="QFormLayout" name="connLayout">
+      <layout class="QGridLayout" name="gridLayout_3">
        <item row="0" column="0">
-        <widget class="QLabel" name="labelSSID">
-         <property name="text">
-          <string>SSID:</string>
+        <widget class="QGroupBox" name="serialBox">
+         <property name="title">
+          <string>Serial</string>
          </property>
+         <layout class="QVBoxLayout" name="serialLayout">
+          <item>
+           <widget class="QComboBox" name="portSelector"/>
+          </item>
+          <item>
+           <widget class="QComboBox" name="baudSelector"/>
+          </item>
+         </layout>
         </widget>
        </item>
        <item row="0" column="1">
-        <widget class="QLineEdit" name="ssidEdit">
-         <property name="text">
-          <string>NOVA CAM DRONE-dc8d36</string>
+        <widget class="QGroupBox" name="connBox">
+         <property name="title">
+          <string>WiFi</string>
          </property>
-        </widget>
-       </item>
-       <item row="1" column="0">
-        <widget class="QLabel" name="labelPass">
-         <property name="text">
-          <string>Password:</string>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="1">
-        <widget class="QLineEdit" name="passEdit">
-         <property name="text">
-          <string/>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="0">
-        <widget class="QLabel" name="labelIP">
-         <property name="text">
-          <string>IP:</string>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="1">
-        <widget class="QLineEdit" name="ipEdit">
-         <property name="text">
-          <string>192.168.1.1</string>
-         </property>
-        </widget>
-       </item>
-       <item row="3" column="0">
-        <widget class="QLabel" name="labelRecv">
-         <property name="text">
-          <string>Recv Port:</string>
-         </property>
-        </widget>
-       </item>
-       <item row="3" column="1">
-        <widget class="QLineEdit" name="recvPortEdit">
-         <property name="text">
-          <string>8888</string>
-         </property>
-        </widget>
-       </item>
-       <item row="4" column="0">
-        <widget class="QLabel" name="labelSend">
-         <property name="text">
-          <string>Send Port:</string>
-         </property>
-        </widget>
-       </item>
-       <item row="4" column="1">
-        <widget class="QLineEdit" name="sendPortEdit">
-         <property name="text">
-          <string>7099</string>
-         </property>
-        </widget>
-       </item>
-       <item row="5" column="0">
-        <widget class="QPushButton" name="btnSetConn">
-         <property name="text">
-          <string>Set Connection</string>
-         </property>
-        </widget>
-       </item>
-       <item row="5" column="1">
-        <widget class="QPushButton" name="btnGetConn">
-         <property name="text">
-          <string>Get Connection</string>
-         </property>
+         <layout class="QFormLayout" name="connLayout">
+          <item row="0" column="0">
+           <widget class="QLabel" name="labelSSID">
+            <property name="text">
+             <string>SSID:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QLineEdit" name="ssidEdit">
+            <property name="text">
+             <string>NOVA CAM DRONE-dc8d36</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="labelPass">
+            <property name="text">
+             <string>Password:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QLineEdit" name="passEdit">
+            <property name="text">
+             <string/>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="labelIP">
+            <property name="text">
+             <string>IP:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QLineEdit" name="ipEdit">
+            <property name="text">
+             <string>192.168.1.1</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0">
+           <widget class="QLabel" name="labelRecv">
+            <property name="text">
+             <string>Recv Port:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="1">
+           <widget class="QLineEdit" name="recvPortEdit">
+            <property name="text">
+             <string>8888</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="0">
+           <widget class="QLabel" name="labelSend">
+            <property name="text">
+             <string>Send Port:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="1">
+           <widget class="QLineEdit" name="sendPortEdit">
+            <property name="text">
+             <string>7099</string>
+            </property>
+           </widget>
+          </item>
+          <item row="5" column="0">
+           <widget class="QPushButton" name="btnSetConn">
+            <property name="text">
+             <string>Set Connection</string>
+            </property>
+           </widget>
+          </item>
+          <item row="5" column="1">
+           <widget class="QPushButton" name="btnGetConn">
+            <property name="text">
+             <string>Get Connection</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
         </widget>
        </item>
       </layout>
      </widget>
     </item>
     <item row="1" column="0">
-     <widget class="QGroupBox" name="serialBox">
-      <property name="title">
-       <string>Serial</string>
-      </property>
-      <layout class="QVBoxLayout" name="serialLayout">
-       <item>
-        <widget class="QComboBox" name="portSelector"/>
-       </item>
-       <item>
-        <widget class="QComboBox" name="baudSelector"/>
-       </item>
-      </layout>
-     </widget>
-    </item>
-    <item row="2" column="0">
      <widget class="QGroupBox" name="droneBox">
       <property name="title">
        <string>Drone Commands</string>
       </property>
       <layout class="QVBoxLayout" name="droneLayout">
        <item>
-        <widget class="QPushButton" name="btnHeartbeatEn">
+        <widget class="QPushButton" name="btnHeartbeat">
          <property name="text">
           <string>Enable/Disable Heartbeat</string>
          </property>
         </widget>
        </item>
        <item>
-        <widget class="QPushButton" name="btnHeartbeat">
-         <property name="text">
-          <string>Send Heartbeat</string>
-         </property>
-        </widget>
-       </item>
-       <item>
         <widget class="QPushButton" name="btnFly">
          <property name="text">
-          <string>Send FlyCmd</string>
+          <string>Enable/Disable FlyCmd</string>
          </property>
         </widget>
        </item>
@@ -164,15 +166,6 @@
          </property>
         </widget>
        </item>
-      </layout>
-     </widget>
-    </item>
-    <item row="2" column="1" colspan="2">
-     <widget class="QGroupBox" name="camBox">
-      <property name="title">
-       <string>Camera Commands</string>
-      </property>
-      <layout class="QVBoxLayout" name="camLayout">
        <item>
         <widget class="QPushButton" name="btnCamFront">
          <property name="text">
@@ -204,7 +197,182 @@
       </layout>
      </widget>
     </item>
-    <item row="4" column="0" colspan="3">
+    <item row="1" column="1">
+     <widget class="QGroupBox" name="groupBox_2">
+      <property name="title">
+       <string>Fly Parameters</string>
+      </property>
+      <layout class="QGridLayout" name="gridLayout_2">
+       <item row="2" column="1">
+        <widget class="QGroupBox" name="groupBox_6">
+         <property name="title">
+          <string/>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_7">
+          <item row="0" column="0">
+           <widget class="QSlider" name="turnSlider">
+            <property name="maximum">
+             <number>255</number>
+            </property>
+            <property name="value">
+             <number>128</number>
+            </property>
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="tickPosition">
+             <enum>QSlider::TicksBelow</enum>
+            </property>
+            <property name="tickInterval">
+             <number>10</number>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item row="0" column="1" colspan="2">
+        <widget class="QGroupBox" name="groupBox_3">
+         <property name="title">
+          <string/>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_4">
+          <item row="0" column="0">
+           <widget class="QSlider" name="leftRightSlider">
+            <property name="maximum">
+             <number>255</number>
+            </property>
+            <property name="value">
+             <number>128</number>
+            </property>
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="tickPosition">
+             <enum>QSlider::TicksAbove</enum>
+            </property>
+            <property name="tickInterval">
+             <number>10</number>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item row="0" column="0" rowspan="3">
+        <widget class="QGroupBox" name="groupBox_4">
+         <property name="title">
+          <string/>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_5">
+          <item row="0" column="0">
+           <widget class="QSlider" name="frontBackSlider">
+            <property name="maximum">
+             <number>255</number>
+            </property>
+            <property name="value">
+             <number>128</number>
+            </property>
+            <property name="orientation">
+             <enum>Qt::Vertical</enum>
+            </property>
+            <property name="tickPosition">
+             <enum>QSlider::TicksAbove</enum>
+            </property>
+            <property name="tickInterval">
+             <number>10</number>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item row="0" column="3" rowspan="3">
+        <widget class="QGroupBox" name="groupBox_5">
+         <property name="title">
+          <string/>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_6">
+          <item row="0" column="0">
+           <widget class="QSlider" name="accelSlider">
+            <property name="maximum">
+             <number>255</number>
+            </property>
+            <property name="value">
+             <number>128</number>
+            </property>
+            <property name="orientation">
+             <enum>Qt::Vertical</enum>
+            </property>
+            <property name="tickPosition">
+             <enum>QSlider::TicksBelow</enum>
+            </property>
+            <property name="tickInterval">
+             <number>10</number>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QGroupBox" name="groupBox_7">
+         <property name="title">
+          <string>Flags</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignCenter</set>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_8">
+          <item row="0" column="1">
+           <widget class="QCheckBox" name="fastDropCheck">
+            <property name="text">
+             <string>FastDrop</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="2">
+           <widget class="QCheckBox" name="emergStopCheck">
+            <property name="text">
+             <string>EmergencyStop</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="0">
+           <widget class="QCheckBox" name="fastFlyCheck">
+            <property name="text">
+             <string>FastFly</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QCheckBox" name="noHeadCheck">
+            <property name="text">
+             <string>NoHead</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QCheckBox" name="unlockCheck">
+            <property name="text">
+             <string>Unlock</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="2">
+           <widget class="QCheckBox" name="gyroCorrCheck">
+            <property name="text">
+             <string>GyroCorrection</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <item row="3" column="0" colspan="2">
      <widget class="QTextEdit" name="log">
       <property name="readOnly">
        <bool>true</bool>
@@ -218,7 +386,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>638</width>
+     <width>741</width>
      <height>25</height>
     </rect>
    </property>

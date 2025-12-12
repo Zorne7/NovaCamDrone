@@ -8,15 +8,25 @@
 #include <QWidget>
 
 static constexpr int CONN_TIMEOUT = 3000;
-static constexpr int HB_TIMEOUT = 1000;
+static constexpr int HB_INTERVAL = 1000;
+static constexpr int FLY_INTERVAL = 50;
 
-void msSleep(int ms)
+static inline void msSleep(int ms)
 {
     QEventLoop loop;
     QTimer timer;
     QObject::connect(&timer, &QTimer::timeout, &loop, &QEventLoop::quit);
     timer.start(ms);
     loop.exec();
+}
+
+static inline void setFlag(uint8_t &flags, uint8_t flag, bool en)
+{
+    if (en) {
+        flags |= flag;
+    } else {
+        flags &= ~flag;
+    }
 }
 
 MainWindow::MainWindow(QWidget *parent)
@@ -35,15 +45,18 @@ MainWindow::MainWindow(QWidget *parent)
     }
     ui->baudSelector->setCurrentText("0");
 
-    timerHb.setInterval(HB_TIMEOUT);
+    timerHb.setInterval(HB_INTERVAL);
     timerHb.setSingleShot(false);
     connect(&timerHb, &QTimer::timeout, this, &MainWindow::sendHeartbeat);
-    connect(ui->btnHeartbeatEn, &QPushButton::clicked, this, &MainWindow::setHeartbeat);
+
+    timerFly.setInterval(FLY_INTERVAL);
+    timerFly.setSingleShot(false);
+    connect(&timerFly, &QTimer::timeout, this, &MainWindow::sendFlyCmd);
 
     connect(ui->btnSetConn, &QPushButton::clicked, this, &MainWindow::sendSetConnection);
     connect(ui->btnGetConn, &QPushButton::clicked, this, &MainWindow::sendGetConnection);
-    connect(ui->btnHeartbeat, &QPushButton::clicked, this, &MainWindow::sendHeartbeat);
-    connect(ui->btnFly, &QPushButton::clicked, this, &MainWindow::sendFlyCmd);
+    connect(ui->btnHeartbeat, &QPushButton::clicked, this, &MainWindow::setHeartbeat);
+    connect(ui->btnFly, &QPushButton::clicked, this, &MainWindow::setFlyCmd);
     connect(ui->btnEnable, &QPushButton::clicked, this, &MainWindow::sendEnableControl);
     connect(ui->btnStop, &QPushButton::clicked, this, &MainWindow::sendStopControl);
     connect(ui->btnCamFront, &QPushButton::clicked, this, &MainWindow::sendSwitchCamFront);
@@ -53,6 +66,25 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect(ui->portSelector, &QComboBox::currentTextChanged, this, &MainWindow::openSerial);
     connect(ui->baudSelector, &QComboBox::currentTextChanged, this, &MainWindow::openSerial);
+
+    connect(ui->leftRightSlider, &QSlider::valueChanged, this, [=](int val) {
+        flyParams.controlByte1 = val;
+    });
+    connect(ui->frontBackSlider, &QSlider::valueChanged, this, [=](int val) {
+        flyParams.controlByte2 = val;
+    });
+    connect(ui->accelSlider, &QSlider::valueChanged, this, [=](int val) {
+        flyParams.controlAccelerator = val;
+    });
+    connect(ui->turnSlider, &QSlider::valueChanged, this, [=](int val) {
+        flyParams.controlTurn = val;
+    });
+    connect(ui->fastFlyCheck, &QCheckBox::stateChanged, this, [=](int en) {
+        setFlag(flyParams.flags, FastFly, en);
+    });
+    connect(ui->fastDropCheck, &QCheckBox::stateChanged, this, [=](int en) {
+        setFlag(flyParams.flags, FastDrop, en);
+    });
 }
 
 MainWindow::~MainWindow()
@@ -69,6 +101,7 @@ void MainWindow::openSerial()
     QString portName = ui->portSelector->currentText();
     int baudRate = ui->baudSelector->currentData().toInt();
     if (baudRate == 0) {
+        ui->log->append("Closed serial ");
         return;
     }
 
@@ -101,8 +134,6 @@ void MainWindow::sendCmd(const ClientCmd &cmd)
 
 void MainWindow::sendSetConnection()
 {
-    ClientCmd cmd;
-
     ConnectionParams params{};
     strncpy(params.wifiSsid, ui->ssidEdit->text().toStdString().c_str(), sizeof(params.wifiSsid));
     strncpy(params.wifiPassw, ui->passEdit->text().toStdString().c_str(), sizeof(params.wifiPassw));
@@ -111,6 +142,7 @@ void MainWindow::sendSetConnection()
     params.sendPort = ui->sendPortEdit->text().toUShort();
     params.timeout = CONN_TIMEOUT;
 
+    ClientCmd cmd;
     cmd.type = TypeSetConnection;
     cmd.data.connParams = params;
 
@@ -143,61 +175,29 @@ void MainWindow::sendHeartbeat()
     sendCmd(cmd);
 }
 
+void MainWindow::setFlyCmd()
+{
+    if (timerFly.isActive()) {
+        timerFly.stop();
+        ui->log->append("Fly disabled");
+    } else {
+        timerFly.start();
+        ui->log->append("Fly enabled");
+    }
+}
+
 void MainWindow::sendFlyCmd()
 {
-    FlyParams fly;
-    fly.controlByte1 = FLY_PAR_NEUTRAL;
-    fly.controlByte2 = FLY_PAR_NEUTRAL;
-    fly.controlAccelerator = FLY_PAR_NEUTRAL;
-    fly.controlTurn = FLY_PAR_NEUTRAL;
-    fly.flags = FastFly;
-    fly.normalize();
-
     ClientCmd cmd;
     cmd.type = TypeFlyCmd;
-    cmd.data.flyCmd.flyParams = fly;
-
+    flyParams.normalize();
+    cmd.data.flyCmd.flyParams = flyParams;
     sendCmd(cmd);
 }
 
 void MainWindow::sendEnableControl()
 {
-    ClientCmd cmd;
-    cmd.type = TypeFlyCmd;
-
-    FlyParams fly;
-    fly.controlByte1 = FLY_PAR_NEUTRAL;
-    fly.controlByte2 = FLY_PAR_NEUTRAL;
-    fly.controlAccelerator = 200;
-    fly.controlTurn = FLY_PAR_NEUTRAL;
-    fly.flags = None;
-    fly.normalize();
-
-    cmd.data.flyCmd.flyParams = fly;
-
-    for (int i = 0; i < 10; i++) {
-        sendCmd(cmd);
-        msSleep(100);
-    }
-
-    fly.controlAccelerator = FLY_PAR_NEUTRAL;
-    fly.flags = FastFly;
-    fly.normalize();
-
-    cmd.data.flyCmd.flyParams = fly;
-
-    for (int i = 0; i < 10; i++) {
-        sendCmd(cmd);
-        msSleep(100);
-    }
-
-    fly.flags = None;
-    fly.normalize();
-
-    for (int i = 0; i < 10; i++) {
-        sendCmd(cmd);
-        msSleep(100);
-    }
+    ui->log->append("FIXME: to be implemented");
 }
 
 void MainWindow::sendStopControl()
@@ -262,6 +262,9 @@ void MainWindow::readSerial()
             break;
         default:
             ui->log->append("Unknown response type: " + QString::number(resp.type));
+            while (serial.bytesAvailable() > 0) {
+                serial.read(serial.bytesAvailable()); // discard wrong bytes
+            }
             break;
         }
     }

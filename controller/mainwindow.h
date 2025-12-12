@@ -29,20 +29,23 @@ private slots:
     void sendSetConnection();
     void sendGetConnection();
     void setHeartbeat();
-    void sendHeartbeat();
-    void sendFlyCmd();
+    void setFlyCmd();
     void sendEnableControl();
     void sendStopControl();
     void sendSwitchCamFront();
     void sendSwitchCamBack();
     void sendAckPhoto();
     void sendAckVideo();
-    void readSerial();
 
 private:
     void sendCmd(const ClientCmd &cmd);
+    void readSerial();
+    void sendHeartbeat();
+    void sendFlyCmd();
 
     QTimer timerHb;
+    QTimer timerFly;
+    FlyParams flyParams;
     QSerialPort serial;
     Ui::MainWindow *ui;
 };
