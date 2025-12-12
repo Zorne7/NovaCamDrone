@@ -19,6 +19,7 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 public:
     explicit MainWindow(QWidget *parent = nullptr);
+    ~MainWindow();
 
 private slots:
     void openSerial();
@@ -35,23 +36,6 @@ private slots:
 
 private:
     QSerialPort serial;
-    QTextEdit *log;
-    QPushButton *btnSetConn;
-    QPushButton *btnGetConn;
-    QLineEdit *ssidEdit;
-    QLineEdit *passEdit;
-    QLineEdit *ipEdit;
-    QLineEdit *recvPortEdit;
-    QLineEdit *sendPortEdit;
-    QPushButton *btnHeartbeat;
-    QPushButton *btnFly;
-    QPushButton *btnStop;
-    QPushButton *btnCamFront;
-    QPushButton *btnCamBack;
-    QPushButton *btnAckPhoto;
-    QPushButton *btnAckVideo;
-    QComboBox *portSelector;
-    QComboBox *baudSelector;
     Ui::MainWindow *ui;
 };
 

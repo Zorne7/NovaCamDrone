@@ -6,20 +6,185 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>800</width>
-    <height>600</height>
+    <width>422</width>
+    <height>785</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>MainWindow</string>
+   <string>Drone Controller</string>
   </property>
-  <widget class="QWidget" name="centralwidget"/>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QVBoxLayout" name="verticalLayout">
+    <item>
+     <widget class="QGroupBox" name="serialBox">
+      <property name="title">
+       <string>Serial</string>
+      </property>
+      <layout class="QVBoxLayout" name="serialLayout">
+       <item>
+        <widget class="QComboBox" name="portSelector"/>
+       </item>
+       <item>
+        <widget class="QComboBox" name="baudSelector"/>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <item>
+     <widget class="QGroupBox" name="connBox">
+      <property name="title">
+       <string>WiFi Connection</string>
+      </property>
+      <layout class="QFormLayout" name="connLayout">
+       <item row="0" column="0">
+        <widget class="QLabel" name="labelSSID">
+         <property name="text">
+          <string>SSID:</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QLineEdit" name="ssidEdit"/>
+       </item>
+       <item row="1" column="0">
+        <widget class="QLabel" name="labelPass">
+         <property name="text">
+          <string>Password:</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QLineEdit" name="passEdit"/>
+       </item>
+       <item row="2" column="0">
+        <widget class="QLabel" name="labelIP">
+         <property name="text">
+          <string>IP:</string>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="1">
+        <widget class="QLineEdit" name="ipEdit"/>
+       </item>
+       <item row="3" column="0">
+        <widget class="QLabel" name="labelRecv">
+         <property name="text">
+          <string>Recv Port:</string>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="1">
+        <widget class="QLineEdit" name="recvPortEdit"/>
+       </item>
+       <item row="4" column="0">
+        <widget class="QLabel" name="labelSend">
+         <property name="text">
+          <string>Send Port:</string>
+         </property>
+        </widget>
+       </item>
+       <item row="4" column="1">
+        <widget class="QLineEdit" name="sendPortEdit"/>
+       </item>
+       <item row="5" column="0">
+        <widget class="QPushButton" name="btnSetConn">
+         <property name="text">
+          <string>Set Connection</string>
+         </property>
+        </widget>
+       </item>
+       <item row="5" column="1">
+        <widget class="QPushButton" name="btnGetConn">
+         <property name="text">
+          <string>Get Connection</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <item>
+     <widget class="QGroupBox" name="droneBox">
+      <property name="title">
+       <string>Drone Commands</string>
+      </property>
+      <layout class="QVBoxLayout" name="droneLayout">
+       <item>
+        <widget class="QPushButton" name="btnHeartbeat">
+         <property name="text">
+          <string>Send Heartbeat</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="btnFly">
+         <property name="text">
+          <string>Send FlyCmd</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="btnStop">
+         <property name="text">
+          <string>Stop Control</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <item>
+     <widget class="QGroupBox" name="camBox">
+      <property name="title">
+       <string>Camera Commands</string>
+      </property>
+      <layout class="QVBoxLayout" name="camLayout">
+       <item>
+        <widget class="QPushButton" name="btnCamFront">
+         <property name="text">
+          <string>Switch Cam Front</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="btnCamBack">
+         <property name="text">
+          <string>Switch Cam Back</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="btnAckPhoto">
+         <property name="text">
+          <string>Ack Photo</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="btnAckVideo">
+         <property name="text">
+          <string>Ack Video</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <item>
+     <widget class="QTextEdit" name="log">
+      <property name="readOnly">
+       <bool>true</bool>
+      </property>
+     </widget>
+    </item>
+   </layout>
+  </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>800</width>
+     <width>422</width>
      <height>21</height>
     </rect>
    </property>
