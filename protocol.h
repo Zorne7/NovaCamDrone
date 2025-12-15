@@ -136,7 +136,7 @@ struct ClientPacket {
         Ack ack;
         uint8_t connected;
         DroneTlm droneTlm;
-        int32_t videoPayloadSize;
+        uint16_t videoPayloadSize;
     } data = Data{0};
 };
 
