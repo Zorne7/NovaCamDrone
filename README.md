@@ -35,28 +35,6 @@ Sistema completo per comandare il drone Nova Cam tramite ESP32 e Python.
 3. Upload → ESP32
 ```
 
-### ===== DRONE CONFIG =====
-DRONE_SSID 		"NOVA CAM DRONE-dc8d36"
-DRONE_PASSWORD 	""
-DRONE_IP 		192.168.1.1
-DRONE_PORT 		7099
-DRONE_RESP_PORT 8888
-VIDEO_URL 		"rtsp://192.168.1.1:7070/webcam"
-
-### 3. Software Python
-
-```bash
-# Windows
-cd python_controller
-pip install -r requirements.txt
-python drone_controller.py COM3
-
-# Linux
-cd python_controller
-pip install -r requirements.txt
-python drone_controller.py /dev/ttyUSB0
-```
-
 ## 📂 Struttura Progetto
 
 ```
