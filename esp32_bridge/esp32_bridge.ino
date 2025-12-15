@@ -12,9 +12,6 @@
 #define LOOP_DELAY  1
 #define SERIAL_BAUD 921600
 
-// ===== FUNCTIONS =====
-char* concat(const char* a, const char* b);
-
 // ===== TYPES =====
 class RTSP {
 public:
@@ -32,12 +29,18 @@ public:
   }
 
   int pollRTP(VideoPayload *payload) {
-    sendKeepalive();
     int packetSize = rtp.parsePacket();
     if (packetSize > 0) {
-        return rtp.read(payload->data, MIN(packetSize, sizeof(*payload)));
+        return rtp.read(payload->data, MIN(packetSize, sizeof(payload->data)));
     }
     return 0;
+  }
+  
+  void sendKeepalive() {
+    if (rtsp.connected() && millis() - lastKeepAlive > 5000) {
+        sendOptions(); // keepalive
+        lastKeepAlive = millis();
+    }
   }
 
 private:
@@ -108,13 +111,6 @@ private:
       readResponse();
   }
 
-  void sendKeepalive() {
-    if (rtsp.connected() && millis() - lastKeepAlive > 5000) {
-        sendOptions(); // keepalive
-        lastKeepAlive = millis();
-    }
-  }
-
   WiFiClient rtsp;
   WiFiUDP rtp;
   unsigned long lastKeepAlive = 0;
@@ -149,8 +145,9 @@ public:
     if(!connParams.valid()){
       return false;
     }
-    char *wifiSsid = concat(DRONE_WIFI_PREFIX, connParams.ssid);
-    WiFi.begin(wifiSsid, DRONE_PASSW);  
+    char wifiSsid[32];
+    snprintf(wifiSsid, sizeof(wifiSsid), "%s%s", DRONE_WIFI_PREFIX, connParams.ssid);
+    WiFi.begin(wifiSsid, DRONE_PASSW);
     for (int attempts = 0; !isConnected() && attempts < maxAttempts; attempts++) {
       delay(connParams.timeout / maxAttempts);
     }
@@ -216,8 +213,9 @@ public:
   }
 
   void forwardDroneVideo() {
-    int videoPayloadSize = rtsp.pollRTP(&videoPayload);
+    rtsp.sendKeepalive();
     clientFdbk.type = PacketType_DroneVideo;
+    int videoPayloadSize = rtsp.pollRTP(&videoPayload);
     while(videoPayloadSize > 0) {
       clientFdbk.data.videoPayloadSize = videoPayloadSize;
       sendToClient(clientFdbk);
@@ -282,15 +280,4 @@ void loop() {
   if(LOOP_DELAY > 0){
     delay(LOOP_DELAY);
   }
-}
-
-char* concat(const char* a, const char* b) {
-  size_t lenA = strlen(a);
-  size_t lenB = strlen(b);
-  char* result = (char*)malloc(lenA + lenB + 1); // +1 for '\0'
-  if (!result) return nullptr;
-  memcpy(result, a, lenA);
-  memcpy(result + lenA, b, lenB);
-  result[lenA + lenB] = '\0';
-  return result;
 }
