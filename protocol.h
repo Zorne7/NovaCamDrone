@@ -42,7 +42,7 @@ static constexpr char *DRONE_WIFI_PREFIX    = "NOVA CAM DRONE-";
 static constexpr char *DRONE_PASSW          = "";
 static constexpr char *DRONE_IP             = "192.168.1.1";
 static constexpr port_t DRONE_RECV_PORT     = 7099;
-static constexpr port_t DRONE_SEND_PORT     = 8888;
+static constexpr port_t DRONE_SEND_PORT     = 7099;
 static constexpr uint8_t FLY_PAR_NEUTRAL    = 128;
 static constexpr int HB_INTERVAL_MS         = 1000;
 static constexpr int FLY_INTERVAL_MS        = 50;
@@ -98,6 +98,7 @@ struct ConnParams
 {
     ssid_t ssid;
     uint16_t timeout;
+    inline bool valid() const { return ssid[0] != 0; }
 };
 
 struct Ack {
