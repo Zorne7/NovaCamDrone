@@ -130,9 +130,9 @@ static constexpr DroneCmd DroneCmd_ACK_VIDEO        = {9, 2};
 
 static inline crc_t calculateCrc(const void *data, size_t len)
 {
-    crc_t crc = 0x00;
     const uint8_t *bytes = (const uint8_t *)data;
-    for (int i = 0; i < len; i++) {
+    crc_t crc = bytes[0];
+    for (int i = 1; i < len; i++) {
         crc ^= bytes[i];
     }
     return crc;
