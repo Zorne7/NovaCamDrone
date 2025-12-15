@@ -327,10 +327,6 @@ void MainWindow::readSerial()
             break;
 
         case PacketType_DroneVideo:
-            if(resp.data.videoPayloadSize > sizeof(videoPayload) || resp.data.videoPayloadSize <= 0){
-                ui->log->append("Invalid video payload size received");
-                break;
-            }
             r = serial.read(reinterpret_cast<char *>(&videoPayload), resp.data.videoPayloadSize);
             if(r < 0){
                 ui->log->append("Error reading video payload from serial");
