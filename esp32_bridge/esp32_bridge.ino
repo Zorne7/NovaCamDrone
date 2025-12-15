@@ -36,7 +36,7 @@ public:
     tft.setTextColor(TFT_WHITE);
     tft.setTextSize(2);
     tft.setCursor(10, 10);
-    tft.print("Drone Bridge: serial ");
+    tft.print("Drone Bridge: rate  ");
     tft.print(SERIAL_BAUD);
   }
 
