@@ -258,6 +258,12 @@ void MainWindow::sendSwitchCamBack()
     sendCmd(cmd);
 }
 
+void MainWindow::resetSerial()
+{
+    serial.close();
+    serial.open(QIODevice::ReadWrite);
+}
+
 void MainWindow::sendAckPhoto()
 {
     ClientPacket cmd;
@@ -295,8 +301,9 @@ void MainWindow::readSerial()
 
     while (serial.bytesAvailable() >= sizeof(resp)) {
         int r = serial.read(reinterpret_cast<char *>(&resp), sizeof(resp));
-        if(r < 0){
+        if(r < sizeof(resp)){
             ui->log->append("Error reading packet from serial");
+            resetSerial();
             break;
         }
 
@@ -327,7 +334,11 @@ void MainWindow::readSerial()
             break;
 
         case PacketType_DroneVideo:
-            r = serial.read(reinterpret_cast<char *>(&videoPayload), resp.data.videoPayloadSize);
+            for(r = 0; r >= 0 && r < resp.data.videoPayloadSize; ) {
+                char *data = reinterpret_cast<char *>(&videoPayload) + r;
+                int size = serial.read(data, resp.data.videoPayloadSize - r);
+                r = size < 0 ? -1 : r + size;
+            }
             if(r < 0){
                 ui->log->append("Error reading video payload from serial");
             } else if(ui->debugCheck->isChecked()) {
@@ -337,9 +348,7 @@ void MainWindow::readSerial()
 
         default:
             ui->log->append("Unknown response type: " + hex(resp.type));
-            // reset serial I/F
-            serial.close();
-            serial.open(QIODevice::ReadWrite);
+            resetSerial();
             break;
         }
     }
