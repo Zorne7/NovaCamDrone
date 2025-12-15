@@ -306,7 +306,8 @@ void MainWindow::readSerial()
             break;
         case PacketType_DroneTlm:
             if(ui->debugCheck->isChecked()){
-                ui->log->append(QString("TLM: Res = %1").arg(hex(resp.data.droneTlm.resolution)));
+                const QByteArray tlmData((const char *)&resp.data.droneTlm, sizeof(resp.data.droneTlm));
+                ui->log->append("TLM: " + tlmData.toHex());
             }
             switch(resp.data.droneTlm.numType){
             case TlmType_Photo:
