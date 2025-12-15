@@ -65,11 +65,12 @@ drone-1/
 ### Comandi Volo (9 byte)
 
 ```
-[3][102][H][V][T][R][MODE][ACTION][153]
+[3][102][H][V][T][R][MODE/ACTION][CRC][153]
 
 H = Horizontal (1-255, 128=neutro)
 V = Vertical (1-255, 128=neutro)
 T = Throttle (1-255, 128=hover)
 R = Rotation (1-255, 128=neutro)
 MODE = Flag modalità/azioni
+CRC = H ^ V ^ T ^ R ^ MODE
 ```
