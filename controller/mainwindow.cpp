@@ -70,6 +70,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->btnCamFront, &QPushButton::clicked, this, &MainWindow::sendSwitchCamFront);
     connect(ui->btnCamBack, &QPushButton::clicked, this, &MainWindow::sendSwitchCamBack);
     connect(ui->resetBtn, &QPushButton::clicked, this, &MainWindow::initCurrentValues);
+    connect(ui->btnClear, &QPushButton::clicked, ui->log, &QTextEdit::clear);
 
     connect(ui->portSelector, &QComboBox::currentTextChanged, this, &MainWindow::openSerial);
     connect(ui->baudSelector, &QComboBox::currentTextChanged, this, &MainWindow::openSerial);
@@ -224,6 +225,7 @@ void MainWindow::sendFlyCmd()
 {
     ClientPacket cmd;
     cmd.type = PacketType_FlyCmd;
+    cmd.data.flyCmd = FlyCmd();
     cmd.data.flyCmd.flyParams = flyParams;
     cmd.data.flyCmd.flyParams.normalize();
     cmd.data.flyCmd.crc = calculateCrc(&cmd.data.flyCmd.flyParams, sizeof(cmd.data.flyCmd.flyParams));

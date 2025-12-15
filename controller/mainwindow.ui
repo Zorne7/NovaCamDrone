@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>996</width>
-    <height>848</height>
+    <width>737</width>
+    <height>838</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -15,143 +15,14 @@
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QGridLayout" name="gridLayout">
-    <item row="0" column="0">
-     <widget class="QGroupBox" name="connBox">
-      <property name="title">
-       <string>Connection</string>
-      </property>
-      <layout class="QGridLayout" name="gridLayout_3">
-       <item row="2" column="0">
-        <widget class="QLabel" name="labelSSID">
-         <property name="text">
-          <string>WiFi SSID:</string>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="0">
-        <widget class="QLabel" name="label_6">
-         <property name="text">
-          <string>Serial Bridge:</string>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="3">
-        <widget class="QPushButton" name="btnGetConn">
-         <property name="text">
-          <string>Get Connection</string>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="0">
-        <widget class="QLabel" name="label_7">
-         <property name="text">
-          <string>Serial Baudrate:</string>
-         </property>
-        </widget>
-       </item>
-       <item row="3" column="3">
-        <widget class="QPushButton" name="btnSetConn">
-         <property name="text">
-          <string>Set Connection</string>
-         </property>
-        </widget>
-       </item>
-       <item row="3" column="0">
-        <widget class="QLabel" name="labelSend">
-         <property name="text">
-          <string>Connection Timeout [ms]:</string>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="1">
-        <widget class="QComboBox" name="baudSelector"/>
-       </item>
-       <item row="2" column="1">
-        <widget class="QLineEdit" name="ssidEdit">
-         <property name="text">
-          <string>dc8d36</string>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="1">
-        <widget class="QComboBox" name="portSelector"/>
-       </item>
-       <item row="3" column="1">
-        <widget class="QLineEdit" name="connTimeoutEdit">
-         <property name="text">
-          <string>3000</string>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="3">
-        <widget class="QCheckBox" name="debugCheck">
-         <property name="text">
-          <string>Debug</string>
-         </property>
-        </widget>
-       </item>
-      </layout>
-     </widget>
-    </item>
-    <item row="3" column="0" colspan="2">
+    <item row="3" column="0" colspan="3">
      <widget class="QTextEdit" name="log">
       <property name="readOnly">
        <bool>true</bool>
       </property>
      </widget>
     </item>
-    <item row="0" column="1">
-     <widget class="QGroupBox" name="droneCmdBox">
-      <property name="title">
-       <string>Drone Commands</string>
-      </property>
-      <layout class="QVBoxLayout" name="droneLayout">
-       <item>
-        <widget class="QPushButton" name="btnHeartbeat">
-         <property name="text">
-          <string>Enable/Disable Heartbeat</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QPushButton" name="btnFly">
-         <property name="text">
-          <string>Enable/Disable FlyCmd</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QPushButton" name="btnEnable">
-         <property name="text">
-          <string>Enable Control</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QPushButton" name="btnStop">
-         <property name="text">
-          <string>Stop Control</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QPushButton" name="btnCamFront">
-         <property name="text">
-          <string>Switch Cam Front</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QPushButton" name="btnCamBack">
-         <property name="text">
-          <string>Switch Cam Back</string>
-         </property>
-        </widget>
-       </item>
-      </layout>
-     </widget>
-    </item>
-    <item row="1" column="0" colspan="2">
+    <item row="1" column="0" colspan="3">
      <widget class="QGroupBox" name="flyParamBox">
       <property name="title">
        <string>Fly Parameters</string>
@@ -504,6 +375,148 @@
       </layout>
      </widget>
     </item>
+    <item row="0" column="0">
+     <widget class="QGroupBox" name="connBox">
+      <property name="title">
+       <string>Connection</string>
+      </property>
+      <layout class="QGridLayout" name="gridLayout_3">
+       <item row="2" column="0">
+        <widget class="QLabel" name="labelSSID">
+         <property name="text">
+          <string>WiFi SSID:</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="0">
+        <widget class="QLabel" name="label_6">
+         <property name="text">
+          <string>Serial Bridge:</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QLabel" name="label_7">
+         <property name="text">
+          <string>Serial Baudrate:</string>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="0">
+        <widget class="QLabel" name="labelSend">
+         <property name="text">
+          <string>Connection Timeout [ms]:</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QComboBox" name="baudSelector"/>
+       </item>
+       <item row="2" column="1">
+        <widget class="QLineEdit" name="ssidEdit">
+         <property name="text">
+          <string>dc8d36</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QComboBox" name="portSelector"/>
+       </item>
+       <item row="3" column="1">
+        <widget class="QLineEdit" name="connTimeoutEdit">
+         <property name="text">
+          <string>3000</string>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="2">
+        <widget class="QPushButton" name="btnSetConn">
+         <property name="text">
+          <string>Set Connection</string>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="2">
+        <widget class="QPushButton" name="btnGetConn">
+         <property name="text">
+          <string>Get Connection</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <item row="2" column="0">
+     <widget class="QPushButton" name="btnClear">
+      <property name="maximumSize">
+       <size>
+        <width>100</width>
+        <height>16777215</height>
+       </size>
+      </property>
+      <property name="text">
+       <string>Clear</string>
+      </property>
+     </widget>
+    </item>
+    <item row="2" column="2">
+     <widget class="QCheckBox" name="debugCheck">
+      <property name="text">
+       <string>Debug</string>
+      </property>
+     </widget>
+    </item>
+    <item row="0" column="1" colspan="2">
+     <widget class="QGroupBox" name="droneCmdBox">
+      <property name="title">
+       <string>Drone Commands</string>
+      </property>
+      <layout class="QVBoxLayout" name="droneLayout">
+       <item>
+        <widget class="QPushButton" name="btnHeartbeat">
+         <property name="text">
+          <string>Enable/Disable Heartbeat</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="btnFly">
+         <property name="text">
+          <string>Enable/Disable FlyCmd</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="btnEnable">
+         <property name="text">
+          <string>Enable Control</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="btnStop">
+         <property name="text">
+          <string>Stop Control</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="btnCamFront">
+         <property name="text">
+          <string>Switch Cam Front</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="btnCamBack">
+         <property name="text">
+          <string>Switch Cam Back</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </item>
    </layout>
   </widget>
   <widget class="QMenuBar" name="menubar">
@@ -511,7 +524,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>996</width>
+     <width>737</width>
      <height>25</height>
     </rect>
    </property>

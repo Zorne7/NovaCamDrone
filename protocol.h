@@ -71,11 +71,11 @@ struct FlyParams
 
 struct FlyCmd
 {
-    const uint8_t header    = 0x03;
-    const uint8_t start     = 0x66;
-    FlyParams flyParams     = FlyParams();
-    crc_t crc               = 0x00; // use calculateCrc on flyParams
-    const uint8_t end       = 0x99;
+    uint8_t header      = 0x03;
+    uint8_t start       = 0x66;
+    FlyParams flyParams = FlyParams();
+    crc_t crc           = 0x00; // use calculateCrc on flyParams
+    uint8_t end         = 0x99;
 };
 
 struct DroneCmd
