@@ -6,50 +6,64 @@
 #define MAX(a, b) (a > b ? a : b)
 #define MIN(a, b) (a < b ? a : b)
 
+typedef char ssid_t[8];
 typedef uint8_t crc_t;
+typedef uint16_t port_t;
 
 enum FlyParamsFlags {
-    None = 0x00,
-    FastFly = 1 << 0,
-    FastDrop = 1 << 1,
-    EmergencyStop = 1 << 2,
-    CircleTurnEnd = 1 << 3,
-    NoHeadMode = 1 << 4,
-    Unlock = 1 << 5,
-    GyroCorrection = 1 << 7
+    FlagNone            = 0x00,
+    FlagFastFly         = 1 << 0,
+    FlagFastDrop        = 1 << 1,
+    FlagEmergencyStop   = 1 << 2,
+    FlagCircleTurnEnd   = 1 << 3,
+    FlagNoHeadMode      = 1 << 4,
+    FlagUnlock          = 1 << 5,
+    FlagGyroCorrection  = 1 << 7
 };
 
-enum TlmNumType { TypePhoto = 77, TypeVideo = 88 };
-
-enum ClientCmdType {
-    TypeSetConnection = 0x01,
-    TypeGetConnection = 0x02,
-    TypeDroneCmd = 0x03,
-    TypeFlyCmd = 0x04,
+enum TlmNumType {
+    TlmType_Photo = 77,
+    TlmType_Video = 88
 };
 
-enum ClientRespType { TypeAck = 0x01, TypeConnectionStat = 0x02, TypeDroneTlm = 0x03 };
+enum ClientPacketType {
+    // Command
+    PacketType_SetConnection = 0x01,
+    PacketType_GetConnection,
+    PacketType_DroneCmd,
+    PacketType_FlyCmd,
+    // Response
+    PacketType_Ack,
+    PacketType_ConnectionStat,
+    PacketType_DroneTlm
+};
 
-static constexpr uint8_t FLY_PAR_NEUTRAL = 128;
-static constexpr uint8_t TURN_DEAD_ZONE = 24;
+static constexpr char *DRONE_WIFI_PREFIX    = "NOVA CAM DRONE-";
+static constexpr char *DRONE_PASSW          = "";
+static constexpr char *DRONE_IP             = "192.168.1.1";
+static constexpr port_t DRONE_RECV_PORT     = 7099;
+static constexpr port_t DRONE_SEND_PORT     = 8888;
+static constexpr uint8_t FLY_PAR_NEUTRAL    = 128;
+static constexpr int HB_INTERVAL_MS         = 1000;
+static constexpr int FLY_INTERVAL_MS        = 50;
 
 #pragma pack(push, 1)
 
 struct FlyParams
 {
-    uint8_t controlByte1 = FLY_PAR_NEUTRAL;       // Control left/right
-    uint8_t controlByte2 = FLY_PAR_NEUTRAL;       // Control front/back
-    uint8_t controlAccelerator = FLY_PAR_NEUTRAL; // Accelerator
-    uint8_t controlTurn = FLY_PAR_NEUTRAL;        // Rotation
-    uint8_t flags = None;                         // FlyParamsFlags
+    uint8_t controlByte1        = FLY_PAR_NEUTRAL; // Control left/right
+    uint8_t controlByte2        = FLY_PAR_NEUTRAL; // Control front/back
+    uint8_t controlAccelerator  = FLY_PAR_NEUTRAL; // Accelerator
+    uint8_t controlTurn         = FLY_PAR_NEUTRAL; // Rotation
+    uint8_t flags               = FlagNone;        // FlyParamsFlags
 
-    void normalize()
+    void normalize(uint8_t turnDeadZone = 24)
     {
         controlByte1 = MAX(controlByte1, 1);
         controlByte2 = MAX(controlByte2, 1);
         controlAccelerator = controlAccelerator == 1 ? 0 : controlAccelerator;
-        controlTurn = (controlTurn >= (FLY_PAR_NEUTRAL - TURN_DEAD_ZONE)
-                       && controlTurn <= (FLY_PAR_NEUTRAL + TURN_DEAD_ZONE))
+        controlTurn = (controlTurn >= (FLY_PAR_NEUTRAL - turnDeadZone)
+                       && controlTurn <= (FLY_PAR_NEUTRAL + turnDeadZone))
                           ? FLY_PAR_NEUTRAL
                           : MAX(controlTurn, 1);
     }
@@ -57,11 +71,11 @@ struct FlyParams
 
 struct FlyCmd
 {
-    const uint8_t header = 0x03;
-    const uint8_t start = 0x66;
-    FlyParams flyParams;
-    uint8_t crc = 0x00;
-    const uint8_t end = 0x99;
+    const uint8_t header    = 0x03;
+    const uint8_t start     = 0x66;
+    FlyParams flyParams     = FlyParams();
+    crc_t crc               = 0x00; // use calculateCrc on flyParams
+    const uint8_t end       = 0x99;
 };
 
 struct DroneCmd
@@ -77,38 +91,28 @@ struct DroneTlm
     uint8_t numType; // TlmNumType
     uint8_t numPhoto;
     uint8_t numVideo;
-    uint8_t data[15];
+    uint8_t sporadicData[15];
 };
 
-static constexpr int MIN_DRONE_TLM_SIZE = sizeof(DroneTlm) - sizeof(DroneTlm::data);
-
-struct ConnectionParams
+struct ConnParams
 {
-    char wifiSsid[25] = "";
-    char wifiPassw[25] = "";
-    char ip[15] = "";
-    uint16_t recvPort;
-    uint16_t sendPort;
-    uint16_t timeout = 1000;
-
-    bool valid() { return wifiSsid[0] != 0 && ip[0] != 0 && recvPort > 0 && sendPort > 0; }
+    ssid_t ssid;
+    uint16_t timeout;
 };
 
-struct ClientCmd
+struct Ack {
+    uint8_t cmd; // ClientPacketType
+    uint8_t res;
+};
+
+struct ClientPacket
 {
-    uint8_t type; // ClientCmdType
+    uint8_t type; // ClientPacketType
     union Data {
-        ConnectionParams connParams;
+        ConnParams connParams;
         DroneCmd droneCmd;
         FlyCmd flyCmd;
-    } data = Data{0};
-};
-
-struct ClientResp
-{
-    uint8_t type; // ClientRespType
-    union Data {
-        uint8_t ack;
+        Ack ack;
         uint8_t connected;
         DroneTlm droneTlm;
     } data = Data{0};
@@ -116,12 +120,12 @@ struct ClientResp
 
 #pragma pack(pop)
 
-static constexpr DroneCmd DroneCmd_HEARTBEAT = {1, 1};
-static constexpr DroneCmd DroneCmd_STOP_CONTROL = {8, 1};
+static constexpr DroneCmd DroneCmd_HEARTBEAT        = {1, 1};
+static constexpr DroneCmd DroneCmd_STOP_CONTROL     = {8, 1};
 static constexpr DroneCmd DroneCmd_SWITCH_CAM_FRONT = {6, 1};
-static constexpr DroneCmd DroneCmd_SWITCH_CAM_BACK = {6, 2};
-static constexpr DroneCmd DroneCmd_ACK_PHOTO = {9, 1};
-static constexpr DroneCmd DroneCmd_ACK_VIDEO = {9, 2};
+static constexpr DroneCmd DroneCmd_SWITCH_CAM_BACK  = {6, 2};
+static constexpr DroneCmd DroneCmd_ACK_PHOTO        = {9, 1};
+static constexpr DroneCmd DroneCmd_ACK_VIDEO        = {9, 2};
 
 static inline crc_t calculateCrc(const void *data, size_t len)
 {

@@ -7,10 +7,6 @@
 #include <QVBoxLayout>
 #include <QWidget>
 
-static constexpr int CONN_TIMEOUT = 3000;
-static constexpr int HB_INTERVAL = 1000;
-static constexpr int FLY_INTERVAL = 50;
-
 static inline void msSleep(int ms)
 {
     QEventLoop loop;
@@ -29,6 +25,18 @@ static inline void setFlag(uint8_t &flags, uint8_t flag, bool en)
     }
 }
 
+template <typename T>
+static inline const QString num2str(T value)
+{
+    return QString::number(value);
+}
+
+template <typename T>
+static inline const QString hex(T value)
+{
+    return QString("0x%1").arg(value, sizeof(value) * 2, 16, QLatin1Char('0'));
+}
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -41,15 +49,15 @@ MainWindow::MainWindow(QWidget *parent)
 
     QList<int> baudRates = {0, 9600, 19200, 38400, 57600, 115200, 921600};
     for (int rate : baudRates) {
-        ui->baudSelector->addItem(QString::number(rate), rate);
+        ui->baudSelector->addItem(num2str(rate), rate);
     }
     ui->baudSelector->setCurrentText("0");
 
-    timerHb.setInterval(HB_INTERVAL);
+    timerHb.setInterval(HB_INTERVAL_MS);
     timerHb.setSingleShot(false);
     connect(&timerHb, &QTimer::timeout, this, &MainWindow::sendHeartbeat);
 
-    timerFly.setInterval(FLY_INTERVAL);
+    timerFly.setInterval(FLY_INTERVAL_MS);
     timerFly.setSingleShot(false);
     connect(&timerFly, &QTimer::timeout, this, &MainWindow::sendFlyCmd);
 
@@ -68,47 +76,47 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect(ui->leftRightSlider, &QSlider::valueChanged, this, [=](int val) {
         flyParams.controlByte1 = val;
-        ui->control1Line->setText(QString::number(flyParams.controlByte1));
+        ui->control1Line->setText(num2str(flyParams.controlByte1));
     });
     connect(ui->frontBackSlider, &QSlider::valueChanged, this, [=](int val) {
         flyParams.controlByte2 = val;
-        ui->control2Line->setText(QString::number(flyParams.controlByte2));
+        ui->control2Line->setText(num2str(flyParams.controlByte2));
     });
     connect(ui->accelSlider, &QSlider::valueChanged, this, [=](int val) {
         flyParams.controlAccelerator = val;
-        ui->accellerLine->setText(QString::number(flyParams.controlAccelerator));
+        ui->accellerLine->setText(num2str(flyParams.controlAccelerator));
     });
     connect(ui->turnSlider, &QSlider::valueChanged, this, [=](int val) {
         flyParams.controlTurn = val;
-        ui->turnLine->setText(QString::number(flyParams.controlTurn));
+        ui->turnLine->setText(num2str(flyParams.controlTurn));
     });
     connect(ui->fastFlyCheck, &QCheckBox::stateChanged, this, [=](int en) {
-        setFlag(flyParams.flags, FastFly, en);
-        ui->flagsLine->setText("0x" + QString::number(flyParams.flags, 16));
+        setFlag(flyParams.flags, FlagFastFly, en);
+        ui->flagsLine->setText(hex(flyParams.flags));
     });
     connect(ui->fastDropCheck, &QCheckBox::stateChanged, this, [=](int en) {
-        setFlag(flyParams.flags, FastDrop, en);
-        ui->flagsLine->setText("0x" + QString::number(flyParams.flags, 16));
+        setFlag(flyParams.flags, FlagFastDrop, en);
+        ui->flagsLine->setText(hex(flyParams.flags));
     });
     connect(ui->emergStopCheck, &QCheckBox::stateChanged, this, [=](int en) {
-        setFlag(flyParams.flags, EmergencyStop, en);
-        ui->flagsLine->setText("0x" + QString::number(flyParams.flags, 16));
+        setFlag(flyParams.flags, FlagEmergencyStop, en);
+        ui->flagsLine->setText(hex(flyParams.flags));
     });
     connect(ui->circleTurnEndCheck, &QCheckBox::stateChanged, this, [=](int en) {
-        setFlag(flyParams.flags, CircleTurnEnd, en);
-        ui->flagsLine->setText("0x" + QString::number(flyParams.flags, 16));
+        setFlag(flyParams.flags, FlagCircleTurnEnd, en);
+        ui->flagsLine->setText(hex(flyParams.flags));
     });
     connect(ui->noHeadCheck, &QCheckBox::stateChanged, this, [=](int en) {
-        setFlag(flyParams.flags, NoHeadMode, en);
-        ui->flagsLine->setText("0x" + QString::number(flyParams.flags, 16));
+        setFlag(flyParams.flags, FlagNoHeadMode, en);
+        ui->flagsLine->setText(hex(flyParams.flags));
     });
     connect(ui->unlockCheck, &QCheckBox::stateChanged, this, [=](int en) {
-        setFlag(flyParams.flags, Unlock, en);
-        ui->flagsLine->setText("0x" + QString::number(flyParams.flags, 16));
+        setFlag(flyParams.flags, FlagUnlock, en);
+        ui->flagsLine->setText(hex(flyParams.flags));
     });
     connect(ui->gyroCorrCheck, &QCheckBox::stateChanged, this, [=](int en) {
-        setFlag(flyParams.flags, GyroCorrection, en);
-        ui->flagsLine->setText("0x" + QString::number(flyParams.flags, 16));
+        setFlag(flyParams.flags, FlagGyroCorrection, en);
+        ui->flagsLine->setText(hex(flyParams.flags));
     });
 
     initCurrentValues();
@@ -125,10 +133,10 @@ void MainWindow::openSerial()
         serial.close();
     }
 
-    QString portName = ui->portSelector->currentText();
-    int baudRate = ui->baudSelector->currentData().toInt();
+    const QString portName = ui->portSelector->currentText();
+    const int baudRate = ui->baudSelector->currentData().toInt();
     if (baudRate == 0) {
-        ui->log->append("Closed serial ");
+        ui->log->append("Closed serial");
         return;
     }
 
@@ -143,18 +151,18 @@ void MainWindow::openSerial()
     }
 }
 
-void MainWindow::sendCmd(const ClientCmd &cmd)
+void MainWindow::sendCmd(const ClientPacket &cmd)
 {
     if (!serial.isOpen()) {
         ui->log->append("Open serial before send command");
         return;
     }
-    const QString cmdType = "0x" + QString::number(cmd.type, 16);
+    const QString cmdType = hex(cmd.type);
     const QByteArray data(reinterpret_cast<const char *>(&cmd), sizeof(cmd));
     bool ok = serial.write(data) == data.size();
     if (ok) {
         serial.flush();
-        // ui->log->append("Cmd " + cmdType + " sent [" + QString::number(data.size()) + "]: " + data.toHex());
+        // ui->log->append("Cmd " + cmdType + " sent [" + num2str(data.size()) + "]: " + data.toHex());
     } else {
         ui->log->append("Error sending cmd " + cmdType);
     }
@@ -162,16 +170,12 @@ void MainWindow::sendCmd(const ClientCmd &cmd)
 
 void MainWindow::sendSetConnection()
 {
-    ConnectionParams params{};
-    strncpy(params.wifiSsid, ui->ssidEdit->text().toStdString().c_str(), sizeof(params.wifiSsid));
-    strncpy(params.wifiPassw, ui->passEdit->text().toStdString().c_str(), sizeof(params.wifiPassw));
-    strncpy(params.ip, ui->ipEdit->text().toStdString().c_str(), sizeof(params.ip));
-    params.recvPort = ui->recvPortEdit->text().toUShort();
-    params.sendPort = ui->sendPortEdit->text().toUShort();
-    params.timeout = CONN_TIMEOUT;
+    ConnParams params{};
+    strncpy(params.ssid, ui->ssidEdit->text().toStdString().c_str(), sizeof(params.ssid));
+    params.timeout = ui->connTimeoutEdit->text().toUInt();
 
-    ClientCmd cmd;
-    cmd.type = TypeSetConnection;
+    ClientPacket cmd;
+    cmd.type = PacketType_SetConnection;
     cmd.data.connParams = params;
 
     sendCmd(cmd);
@@ -179,8 +183,8 @@ void MainWindow::sendSetConnection()
 
 void MainWindow::sendGetConnection()
 {
-    ClientCmd cmd;
-    cmd.type = TypeGetConnection;
+    ClientPacket cmd;
+    cmd.type = PacketType_GetConnection;
     sendCmd(cmd);
 }
 
@@ -197,8 +201,8 @@ void MainWindow::setHeartbeat()
 
 void MainWindow::sendHeartbeat()
 {
-    ClientCmd cmd;
-    cmd.type = TypeDroneCmd;
+    ClientPacket cmd;
+    cmd.type = PacketType_DroneCmd;
     cmd.data.droneCmd = DroneCmd_HEARTBEAT;
     sendCmd(cmd);
 }
@@ -216,8 +220,8 @@ void MainWindow::setFlyCmd()
 
 void MainWindow::sendFlyCmd()
 {
-    ClientCmd cmd;
-    cmd.type = TypeFlyCmd;
+    ClientPacket cmd;
+    cmd.type = PacketType_FlyCmd;
     cmd.data.flyCmd.flyParams = flyParams;
     cmd.data.flyCmd.flyParams.normalize();
     cmd.data.flyCmd.crc = calculateCrc(&cmd.data.flyCmd.flyParams, sizeof(cmd.data.flyCmd.flyParams));
@@ -231,40 +235,40 @@ void MainWindow::sendEnableControl()
 
 void MainWindow::sendStopControl()
 {
-    ClientCmd cmd;
-    cmd.type = TypeDroneCmd;
+    ClientPacket cmd;
+    cmd.type = PacketType_DroneCmd;
     cmd.data.droneCmd = DroneCmd_STOP_CONTROL;
     sendCmd(cmd);
 }
 
 void MainWindow::sendSwitchCamFront()
 {
-    ClientCmd cmd;
-    cmd.type = TypeDroneCmd;
+    ClientPacket cmd;
+    cmd.type = PacketType_DroneCmd;
     cmd.data.droneCmd = DroneCmd_SWITCH_CAM_FRONT;
     sendCmd(cmd);
 }
 
 void MainWindow::sendSwitchCamBack()
 {
-    ClientCmd cmd;
-    cmd.type = TypeDroneCmd;
+    ClientPacket cmd;
+    cmd.type = PacketType_DroneCmd;
     cmd.data.droneCmd = DroneCmd_SWITCH_CAM_BACK;
     sendCmd(cmd);
 }
 
 void MainWindow::sendAckPhoto()
 {
-    ClientCmd cmd;
-    cmd.type = TypeDroneCmd;
+    ClientPacket cmd;
+    cmd.type = PacketType_DroneCmd;
     cmd.data.droneCmd = DroneCmd_ACK_PHOTO;
     sendCmd(cmd);
 }
 
 void MainWindow::sendAckVideo()
 {
-    ClientCmd cmd;
-    cmd.type = TypeDroneCmd;
+    ClientPacket cmd;
+    cmd.type = PacketType_DroneCmd;
     cmd.data.droneCmd = DroneCmd_ACK_VIDEO;
     sendCmd(cmd);
 }
@@ -286,32 +290,32 @@ void MainWindow::initCurrentValues()
 
 void MainWindow::readSerial()
 {
-    while (serial.bytesAvailable() >= sizeof(ClientResp)) {
-        ClientResp resp;
+    ClientPacket resp;
+    while (serial.bytesAvailable() >= sizeof(resp)) {
         serial.read(reinterpret_cast<char *>(&resp), sizeof(resp));
 
         switch (resp.type) {
-        case TypeAck:
-            if (resp.data.ack == 0) {
-                ui->log->append(QString("Ack: %1").arg(resp.data.ack));
+        case PacketType_Ack:
+            if (resp.data.ack.res == 0) {
+                ui->log->append(QString("Ack: Cmd = %1, Res = %2").arg(hex(resp.data.ack.cmd)).arg(resp.data.ack.res));
             }
             break;
-        case TypeConnectionStat:
+        case PacketType_ConnectionStat:
             ui->log->append(QString("Connection: %1").arg(resp.data.connected));
             break;
-        case TypeDroneTlm:
+        case PacketType_DroneTlm:
             switch(resp.data.droneTlm.numType){
-            case TypePhoto:
+            case TlmType_Photo:
                 sendAckPhoto();
                 break;
-            case TypeVideo:
+            case TlmType_Video:
                 sendAckVideo();
                 break;
             }
 
             break;
         default:
-            ui->log->append("Unknown response type: " + QString::number(resp.type));
+            ui->log->append("Unknown response type: " + hex(resp.type));
             while (serial.bytesAvailable() > 0) {
                 serial.read(serial.bytesAvailable()); // discard all
             }

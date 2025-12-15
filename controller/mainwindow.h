@@ -36,7 +36,7 @@ private slots:
     void sendSwitchCamBack();
 
 private:
-    void sendCmd(const ClientCmd &cmd);
+    void sendCmd(const ClientPacket &cmd);
     void readSerial();
     void sendHeartbeat();
     void sendFlyCmd();

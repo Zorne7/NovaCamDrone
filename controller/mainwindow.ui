@@ -15,125 +15,86 @@
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QGridLayout" name="gridLayout">
-    <item row="0" column="0" colspan="2">
-     <widget class="QGroupBox" name="groupBox">
+    <item row="0" column="0">
+     <widget class="QGroupBox" name="connBox">
       <property name="title">
        <string>Connection</string>
       </property>
       <layout class="QGridLayout" name="gridLayout_3">
-       <item row="0" column="0">
-        <widget class="QGroupBox" name="serialBox">
-         <property name="title">
-          <string>Serial</string>
+       <item row="2" column="0">
+        <widget class="QLabel" name="labelSSID">
+         <property name="text">
+          <string>WiFi SSID:</string>
          </property>
-         <layout class="QVBoxLayout" name="serialLayout">
-          <item>
-           <widget class="QComboBox" name="portSelector"/>
-          </item>
-          <item>
-           <widget class="QComboBox" name="baudSelector"/>
-          </item>
-         </layout>
+        </widget>
+       </item>
+       <item row="0" column="0">
+        <widget class="QLabel" name="label_6">
+         <property name="text">
+          <string>Serial Bridge:</string>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="3">
+        <widget class="QPushButton" name="btnGetConn">
+         <property name="text">
+          <string>Get Connection</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QLabel" name="label_7">
+         <property name="text">
+          <string>Serial Baudrate:</string>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="3">
+        <widget class="QPushButton" name="btnSetConn">
+         <property name="text">
+          <string>Set Connection</string>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="0">
+        <widget class="QLabel" name="labelSend">
+         <property name="text">
+          <string>Connection Timeout [ms]:</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QComboBox" name="baudSelector"/>
+       </item>
+       <item row="2" column="1">
+        <widget class="QLineEdit" name="ssidEdit">
+         <property name="text">
+          <string>dc8d36</string>
+         </property>
         </widget>
        </item>
        <item row="0" column="1">
-        <widget class="QGroupBox" name="connBox">
-         <property name="title">
-          <string>WiFi</string>
+        <widget class="QComboBox" name="portSelector"/>
+       </item>
+       <item row="3" column="1">
+        <widget class="QLineEdit" name="connTimeoutEdit">
+         <property name="text">
+          <string>3000</string>
          </property>
-         <layout class="QFormLayout" name="connLayout">
-          <item row="0" column="0">
-           <widget class="QLabel" name="labelSSID">
-            <property name="text">
-             <string>SSID:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="1">
-           <widget class="QLineEdit" name="ssidEdit">
-            <property name="text">
-             <string>NOVA CAM DRONE-dc8d36</string>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="0">
-           <widget class="QLabel" name="labelPass">
-            <property name="text">
-             <string>Password:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="1">
-           <widget class="QLineEdit" name="passEdit">
-            <property name="text">
-             <string/>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="0">
-           <widget class="QLabel" name="labelIP">
-            <property name="text">
-             <string>IP:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="1">
-           <widget class="QLineEdit" name="ipEdit">
-            <property name="text">
-             <string>192.168.1.1</string>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="0">
-           <widget class="QLabel" name="labelRecv">
-            <property name="text">
-             <string>Recv Port:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="1">
-           <widget class="QLineEdit" name="recvPortEdit">
-            <property name="text">
-             <string>8888</string>
-            </property>
-           </widget>
-          </item>
-          <item row="4" column="0">
-           <widget class="QLabel" name="labelSend">
-            <property name="text">
-             <string>Send Port:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="4" column="1">
-           <widget class="QLineEdit" name="sendPortEdit">
-            <property name="text">
-             <string>7099</string>
-            </property>
-           </widget>
-          </item>
-          <item row="5" column="0">
-           <widget class="QPushButton" name="btnSetConn">
-            <property name="text">
-             <string>Set Connection</string>
-            </property>
-           </widget>
-          </item>
-          <item row="5" column="1">
-           <widget class="QPushButton" name="btnGetConn">
-            <property name="text">
-             <string>Get Connection</string>
-            </property>
-           </widget>
-          </item>
-         </layout>
         </widget>
        </item>
       </layout>
      </widget>
     </item>
-    <item row="1" column="0">
-     <widget class="QGroupBox" name="droneBox">
+    <item row="3" column="0" colspan="2">
+     <widget class="QTextEdit" name="log">
+      <property name="readOnly">
+       <bool>true</bool>
+      </property>
+     </widget>
+    </item>
+    <item row="0" column="1">
+     <widget class="QGroupBox" name="droneCmdBox">
       <property name="title">
        <string>Drone Commands</string>
       </property>
@@ -183,8 +144,8 @@
       </layout>
      </widget>
     </item>
-    <item row="1" column="1">
-     <widget class="QGroupBox" name="groupBox_2">
+    <item row="1" column="0" colspan="2">
+     <widget class="QGroupBox" name="flyParamBox">
       <property name="title">
        <string>Fly Parameters</string>
       </property>
@@ -534,13 +495,6 @@
         </widget>
        </item>
       </layout>
-     </widget>
-    </item>
-    <item row="3" column="0" colspan="2">
-     <widget class="QTextEdit" name="log">
-      <property name="readOnly">
-       <bool>true</bool>
-      </property>
      </widget>
     </item>
    </layout>
