@@ -5,6 +5,21 @@
 
 #define MAX(a, b) (a > b ? a : b)
 #define MIN(a, b) (a < b ? a : b)
+#define STR_HELPER(x) #x
+#define STR(x) STR_HELPER(x)
+
+#define DRONE_WIFI_PREFIX   "NOVA CAM DRONE-"
+#define DRONE_PASSW         ""
+#define DRONE_IP            "192.168.1.1"
+#define DRONE_RECV_PORT     7099
+#define DRONE_SEND_PORT     7099
+#define DRONE_VIDEO_PORT    7070
+#define DRONE_CAM           "rtsp://" DRONE_IP ":" STR(DRONE_VIDEO_PORT) "/webcam"
+#define DRONE_RTP_PORT      23144
+#define DRONE_RTCP_PORT     23145
+#define FLY_PAR_NEUTRAL     128
+#define HB_INTERVAL_MS      1000
+#define FLY_INTERVAL_MS     50
 
 typedef char ssid_t[8];
 typedef uint8_t crc_t;
@@ -35,17 +50,9 @@ enum ClientPacketType {
     // Response
     PacketType_Ack,
     PacketType_ConnectionStat,
-    PacketType_DroneTlm
+    PacketType_DroneTlm,
+    PacketType_DroneVideo
 };
-
-static constexpr char *DRONE_WIFI_PREFIX    = "NOVA CAM DRONE-";
-static constexpr char *DRONE_PASSW          = "";
-static constexpr char *DRONE_IP             = "192.168.1.1";
-static constexpr port_t DRONE_RECV_PORT     = 7099;
-static constexpr port_t DRONE_SEND_PORT     = 7099;
-static constexpr uint8_t FLY_PAR_NEUTRAL    = 128;
-static constexpr int HB_INTERVAL_MS         = 1000;
-static constexpr int FLY_INTERVAL_MS        = 50;
 
 static inline crc_t calculateCrc(const void *data, size_t len)
 {
@@ -120,8 +127,7 @@ struct Ack {
     uint8_t res;
 };
 
-struct ClientPacket
-{
+struct ClientPacket {
     uint8_t type; // ClientPacketType
     union Data {
         ConnParams connParams;
@@ -130,7 +136,12 @@ struct ClientPacket
         Ack ack;
         uint8_t connected;
         DroneTlm droneTlm;
+        int32_t videoPayloadSize;
     } data = Data{0};
+};
+
+struct VideoPayload {
+    uint8_t data[1500];
 };
 
 #pragma pack(pop)

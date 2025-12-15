@@ -48,6 +48,7 @@ private:
     QTimer timerHb;
     QTimer timerFly;
     FlyParams flyParams;
+    VideoPayload videoPayload;
     QSerialPort serial;
     Ui::MainWindow *ui;
 };

@@ -7,7 +7,7 @@
 #include <QVBoxLayout>
 #include <QWidget>
 
-static inline void msSleep(int ms)
+static inline void ms_sleep(int ms)
 {
     QEventLoop loop;
     QTimer timer;
@@ -292,8 +292,13 @@ void MainWindow::initCurrentValues()
 void MainWindow::readSerial()
 {
     ClientPacket resp;
+
     while (serial.bytesAvailable() >= sizeof(resp)) {
-        serial.read(reinterpret_cast<char *>(&resp), sizeof(resp));
+        int r = serial.read(reinterpret_cast<char *>(&resp), sizeof(resp));
+        if(r < 0){
+            ui->log->append("Error reading packet from serial");
+            break;
+        }
 
         switch (resp.type) {
         case PacketType_Ack:
@@ -301,9 +306,11 @@ void MainWindow::readSerial()
                 ui->log->append(QString("Ack: Cmd = %1, Res = %2").arg(hex(resp.data.ack.cmd)).arg(resp.data.ack.res));
             }
             break;
+
         case PacketType_ConnectionStat:
             ui->log->append(QString("Connection: %1").arg(resp.data.connected));
             break;
+
         case PacketType_DroneTlm:
             if(ui->debugCheck->isChecked()){
                 const QByteArray tlmData(reinterpret_cast<const char *>(&resp.data.droneTlm), sizeof(resp.data.droneTlm));
@@ -318,11 +325,25 @@ void MainWindow::readSerial()
                 break;
             }
             break;
+
+        case PacketType_DroneVideo:
+            if(resp.data.videoPayloadSize > sizeof(videoPayload) || resp.data.videoPayloadSize <= 0){
+                ui->log->append("Invalid video payload size received");
+                break;
+            }
+            r = serial.read(reinterpret_cast<char *>(&videoPayload), resp.data.videoPayloadSize);
+            if(r < 0){
+                ui->log->append("Error reading video payload from serial");
+            } else if(ui->debugCheck->isChecked()) {
+                ui->log->append("VIDEO [" + num2str(resp.data.videoPayloadSize) + "]");
+            }
+            break;
+
         default:
             ui->log->append("Unknown response type: " + hex(resp.type));
-            while (serial.bytesAvailable() > 0) {
-                serial.read(serial.bytesAvailable()); // discard all
-            }
+            // reset serial I/F
+            serial.close();
+            serial.open(QIODevice::ReadWrite);
             break;
         }
     }
