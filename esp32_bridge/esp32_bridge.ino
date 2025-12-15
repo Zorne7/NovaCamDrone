@@ -151,7 +151,6 @@ public:
     for (int attempts = 0; !isConnected() && attempts < maxAttempts; attempts++) {
       delay(connParams.timeout / maxAttempts);
     }
-    free(wifiSsid);
     if(!isConnected()){
       return false;
     }
