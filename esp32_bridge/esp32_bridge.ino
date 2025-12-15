@@ -12,16 +12,115 @@
 #define LOOP_DELAY  1
 #define SERIAL_BAUD 921600
 
-static inline char* concat(const char* a, const char* b) {
-  size_t lenA = strlen(a);
-  size_t lenB = strlen(b);
-  char* result = (char*)malloc(lenA + lenB + 1); // +1 for '\0'
-  if (!result) return nullptr;
-  memcpy(result, a, lenA);
-  memcpy(result + lenA, b, lenB);
-  result[lenA + lenB] = '\0';
-  return result;
-}
+// ===== FUNCTIONS =====
+char* concat(const char* a, const char* b);
+
+// ===== TYPES =====
+class RTSP {
+public:
+  bool init() {
+    if(!rtsp.connect(DRONE_IP, DRONE_VIDEO_PORT)){
+      return false;
+    }
+    sendOptions();
+    sendDescribe();
+    sendSetup();
+    sendPlay();
+    rtp.begin(DRONE_RTP_PORT);
+    lastKeepAlive = millis();
+    return true;
+  }
+
+  int pollRTP(VideoPayload *payload) {
+    sendKeepalive();
+    int packetSize = rtp.parsePacket();
+    if (packetSize > 0) {
+        return rtp.read(payload->data, MIN(packetSize, sizeof(*payload)));
+    }
+    return 0;
+  }
+
+private:
+  String readResponse() {
+    String resp;
+    unsigned long start = millis();
+    while (millis() - start < 1000) {
+        while (rtsp.available()) {
+            char c = rtsp.read();
+            resp += c;
+        }
+    }
+    return resp;
+  }
+
+  String extractSession(const String& resp) {
+      int idx = resp.indexOf("Session:");
+      if (idx < 0) return "";
+      int end = resp.indexOf("\r\n", idx);
+      if (end < 0) end = resp.length();
+      String line = resp.substring(idx + 8, end);
+      line.trim();
+      return line;
+  }
+
+  void sendOptions() {
+      String req =
+          "OPTIONS " DRONE_CAM " RTSP/1.0\r\n"
+          "CSeq: " + String(cseq++) + "\r\n"
+          "User-Agent: Lavf57.71.100\r\n"
+          "\r\n";
+      rtsp.print(req);
+      readResponse();
+  }
+
+  void sendDescribe() {
+      String req =
+          "DESCRIBE " DRONE_CAM " RTSP/1.0\r\n"
+          "Accept: application/sdp\r\n"
+          "CSeq: " + String(cseq++) + "\r\n"
+          "User-Agent: Lavf57.71.100\r\n"
+          "\r\n";
+      rtsp.print(req);
+      String resp = readResponse();
+  }
+
+  void sendSetup() {
+      String req =
+          "SETUP " DRONE_CAM "/track0 RTSP/1.0\r\n"
+          "Transport: RTP/AVP/UDP;unicast;client_port=" STR(DRONE_RTP_PORT) "-" STR(DRONE_RTCP_PORT) "\r\n"
+          "CSeq: " + String(cseq++) + "\r\n"
+          "User-Agent: Lavf57.71.100\r\n"
+          "\r\n";
+      rtsp.print(req);
+      String resp = readResponse();
+      sessionId = extractSession(resp);
+  }
+
+  void sendPlay() {
+      String req =
+          "PLAY " DRONE_CAM "/ RTSP/1.0\r\n"
+          "Range: npt=0.000-\r\n"
+          "CSeq: " + String(cseq++) + "\r\n"
+          "User-Agent: Lavf57.71.100\r\n"
+          "Session: " + sessionId + "\r\n"
+          "\r\n";
+      rtsp.print(req);
+      readResponse();
+  }
+
+  void sendKeepalive() {
+    if (rtsp.connected() && millis() - lastKeepAlive > 5000) {
+        sendOptions(); // keepalive
+        lastKeepAlive = millis();
+    }
+  }
+
+  WiFiClient rtsp;
+  WiFiUDP rtp;
+  unsigned long lastKeepAlive = 0;
+  int cseq = 1;
+  String sessionId = "";
+};
 
 class Bridge {
 public:
@@ -60,6 +159,7 @@ public:
       return false;
     }
     udp.begin(DRONE_RECV_PORT);
+    rtsp.init();
     return true;
   }
 
@@ -79,9 +179,9 @@ public:
         break;
 
       case PacketType_GetConnection:
-        clientResp.type = PacketType_ConnectionStat;
-        clientResp.data.connected = isConnected();
-        sendToClient(clientResp);
+        clientFdbk.type = PacketType_ConnectionStat;
+        clientFdbk.data.connected = isConnected();
+        sendToClient(clientFdbk);
         return; // return to not send ack
 
       case PacketType_DroneCmd: 
@@ -96,22 +196,33 @@ public:
         break;
     }
 
-    clientResp.type = PacketType_Ack;
-    clientResp.data.ack.cmd = clientCmd.type;
-    clientResp.data.ack.res = ok;
-	  sendToClient(clientResp);
+    clientFdbk.type = PacketType_Ack;
+    clientFdbk.data.ack.cmd = clientCmd.type;
+    clientFdbk.data.ack.res = ok;
+	  sendToClient(clientFdbk);
   }
 
   void forwardDroneTlm() {
     static const int MIN_DRONE_TLM_SIZE = sizeof(DroneTlm) - sizeof(DroneTlm::sporadicData);
     int packetSize = udp.parsePacket();
     while (packetSize >= MIN_DRONE_TLM_SIZE) {
-      const int len = udp.read((uint8_t *)&clientResp.data.droneTlm, MIN(packetSize, sizeof(DroneTlm)));
+      const int len = udp.read((uint8_t *)&clientFdbk.data.droneTlm, MIN(packetSize, sizeof(DroneTlm)));
       if(len > 0){
-        clientResp.type = PacketType_DroneTlm;
-        sendToClient(clientResp);
+        clientFdbk.type = PacketType_DroneTlm;
+        sendToClient(clientFdbk);
         packetSize = udp.parsePacket();
       }
+    }
+  }
+
+  void forwardDroneVideo() {
+    int videoPayloadSize = rtsp.pollRTP(&videoPayload);
+    clientFdbk.type = PacketType_DroneVideo;
+    while(videoPayloadSize > 0) {
+      clientFdbk.data.videoPayloadSize = videoPayloadSize;
+      sendToClient(clientFdbk);
+      sendToClient(videoPayload, videoPayloadSize);
+      videoPayloadSize = rtsp.pollRTP(&videoPayload);
     }
   }
 
@@ -126,8 +237,9 @@ private:
     return true;
   }
   
-  void sendToClient(const ClientPacket &resp) {
-    Serial.write((const uint8_t *)&resp, sizeof(resp));
+  template <typename T>
+  void sendToClient(const T &packet, int size = -1) {
+    Serial.write((const uint8_t *)&packet, size < 0 ? sizeof(packet) : size);
     Serial.flush();
   }
   
@@ -139,10 +251,12 @@ private:
   }
 
   WiFiUDP udp;
+  RTSP rtsp;
   TFT_eSPI tft = TFT_eSPI();
   ConnParams connParams;
   ClientPacket clientCmd;
-  ClientPacket clientResp;
+  ClientPacket clientFdbk;
+  VideoPayload videoPayload;
 };
 
 // ===== GLOBAL VARIABLES =====
@@ -163,8 +277,20 @@ void loop() {
 
   bridge.parseClientCmd();
   bridge.forwardDroneTlm();
+  bridge.forwardDroneVideo();
 
   if(LOOP_DELAY > 0){
     delay(LOOP_DELAY);
   }
+}
+
+char* concat(const char* a, const char* b) {
+  size_t lenA = strlen(a);
+  size_t lenB = strlen(b);
+  char* result = (char*)malloc(lenA + lenB + 1); // +1 for '\0'
+  if (!result) return nullptr;
+  memcpy(result, a, lenA);
+  memcpy(result + lenA, b, lenB);
+  result[lenA + lenB] = '\0';
+  return result;
 }
