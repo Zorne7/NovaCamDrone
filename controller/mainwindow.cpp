@@ -225,10 +225,7 @@ void MainWindow::sendFlyCmd()
 {
     ClientPacket cmd;
     cmd.type = PacketType_FlyCmd;
-    cmd.data.flyCmd = FlyCmd();
-    cmd.data.flyCmd.flyParams = flyParams;
-    cmd.data.flyCmd.flyParams.normalize();
-    cmd.data.flyCmd.crc = calculateCrc(&cmd.data.flyCmd.flyParams, sizeof(cmd.data.flyCmd.flyParams));
+    cmd.data.flyCmd = FlyCmd(flyParams);
     sendCmd(cmd);
 }
 

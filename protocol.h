@@ -47,6 +47,16 @@ static constexpr uint8_t FLY_PAR_NEUTRAL    = 128;
 static constexpr int HB_INTERVAL_MS         = 1000;
 static constexpr int FLY_INTERVAL_MS        = 50;
 
+static inline crc_t calculateCrc(const void *data, size_t len)
+{
+    const uint8_t *bytes = (const uint8_t *)data;
+    crc_t crc = bytes[0];
+    for (int i = 1; i < len; i++) {
+        crc ^= bytes[i];
+    }
+    return crc;
+}
+
 #pragma pack(push, 1)
 
 struct FlyParams
@@ -71,6 +81,10 @@ struct FlyParams
 
 struct FlyCmd
 {
+    explicit FlyCmd(const FlyParams &params = FlyParams()) : flyParams(params) {
+        flyParams.normalize();
+        crc = calculateCrc(&flyParams, sizeof(flyParams));
+    }
     uint8_t header      = 0x03;
     uint8_t start       = 0x66;
     FlyParams flyParams = FlyParams();
@@ -127,15 +141,5 @@ static constexpr DroneCmd DroneCmd_SWITCH_CAM_FRONT = {6, 1};
 static constexpr DroneCmd DroneCmd_SWITCH_CAM_BACK  = {6, 2};
 static constexpr DroneCmd DroneCmd_ACK_PHOTO        = {9, 1};
 static constexpr DroneCmd DroneCmd_ACK_VIDEO        = {9, 2};
-
-static inline crc_t calculateCrc(const void *data, size_t len)
-{
-    const uint8_t *bytes = (const uint8_t *)data;
-    crc_t crc = bytes[0];
-    for (int i = 1; i < len; i++) {
-        crc ^= bytes[i];
-    }
-    return crc;
-}
 
 #endif // PROTOCOL_H
