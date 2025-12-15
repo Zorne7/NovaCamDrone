@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>737</width>
+    <width>780</width>
     <height>838</height>
    </rect>
   </property>
@@ -477,12 +477,18 @@
          <property name="text">
           <string>Enable/Disable Heartbeat</string>
          </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
         </widget>
        </item>
        <item>
         <widget class="QPushButton" name="btnFly">
          <property name="text">
           <string>Enable/Disable FlyCmd</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
          </property>
         </widget>
        </item>
@@ -524,7 +530,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>737</width>
+     <width>780</width>
      <height>25</height>
     </rect>
    </property>

@@ -164,7 +164,7 @@ void MainWindow::sendCmd(const ClientPacket &cmd)
     if (ok) {
         serial.flush();
         if(ui->debugCheck->isChecked()){
-            ui->log->append("Cmd " + cmdType + " sent [" + num2str(data.size()) + "]: " + data.toHex());
+            ui->log->append("CMD " + cmdType + " [" + num2str(data.size()) + "]: " + data.toHex());
         }
     } else {
         ui->log->append("Error sending cmd " + cmdType);
@@ -297,7 +297,7 @@ void MainWindow::readSerial()
 
         switch (resp.type) {
         case PacketType_Ack:
-            if (resp.data.ack.res == 0) {
+            if (resp.data.ack.res == 0 || ui->debugCheck->isChecked()) {
                 ui->log->append(QString("Ack: Cmd = %1, Res = %2").arg(hex(resp.data.ack.cmd)).arg(resp.data.ack.res));
             }
             break;
@@ -306,8 +306,8 @@ void MainWindow::readSerial()
             break;
         case PacketType_DroneTlm:
             if(ui->debugCheck->isChecked()){
-                const QByteArray tlmData((const char *)&resp.data.droneTlm, sizeof(resp.data.droneTlm));
-                ui->log->append("TLM: " + tlmData.toHex());
+                const QByteArray tlmData(reinterpret_cast<const char *>(&resp.data.droneTlm), sizeof(resp.data.droneTlm));
+                ui->log->append("TLM [" + num2str(tlmData.size()) + "]: " + tlmData.toHex());
             }
             switch(resp.data.droneTlm.numType){
             case TlmType_Photo:
