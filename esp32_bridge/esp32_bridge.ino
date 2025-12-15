@@ -8,7 +8,8 @@
 
 #include "../protocol.h"
 
-// ===== SERIAL CONFIG =====
+// ===== CONFIG =====
+#define LOOP_DELAY  1
 #define SERIAL_BAUD 921600
 
 static inline char* concat(const char* a, const char* b) {
@@ -163,5 +164,7 @@ void loop() {
   bridge.parseClientCmd();
   bridge.forwardDroneTlm();
 
-  delay(1);
+  if(LOOP_DELAY > 0){
+    delay(LOOP_DELAY);
+  }
 }
