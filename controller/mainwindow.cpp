@@ -162,7 +162,7 @@ void MainWindow::sendCmd(const ClientPacket &cmd)
     bool ok = serial.write(data) == data.size();
     if (ok) {
         serial.flush();
-        // ui->log->append("Cmd " + cmdType + " sent [" + num2str(data.size()) + "]: " + data.toHex());
+        ui->log->append("Cmd " + cmdType + " sent [" + num2str(data.size()) + "]: " + data.toHex());
     } else {
         ui->log->append("Error sending cmd " + cmdType);
     }
@@ -304,6 +304,7 @@ void MainWindow::readSerial()
             ui->log->append(QString("Connection: %1").arg(resp.data.connected));
             break;
         case PacketType_DroneTlm:
+            ui->log->append(QString("TLM: Res = %1").arg(hex(resp.data.droneTlm.resolution)));
             switch(resp.data.droneTlm.numType){
             case TlmType_Photo:
                 sendAckPhoto();
