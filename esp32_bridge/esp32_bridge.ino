@@ -21,8 +21,23 @@ public:
     if(!rtsp.connect(DRONE_IP, DRONE_VIDEO_PORT)){
       return false;
     }
+
+    String resp = sendAndRead(reqOptions());
+    if(!isResponseOK(resp)){
+      close();
+      return false;
+    }
+
+    resp = sendAndRead(reqDescribe());
+    if(!isResponseOK(resp)){
+      close();
+      return false;
+    }
+
     lastKeepAlive = millis();
+
     rtp.begin(DRONE_RTP_PORT);
+
     return true;
   }
 
@@ -37,10 +52,6 @@ public:
     switch (status){
 
       case StreamStatus_Enabled:
-        ok = isResponseOK(sendAndRead(reqOptions())) && isResponseOK(sendAndRead(reqDescribe()));
-        if(!ok){
-          break;
-        }
         resp = sendAndRead(reqSetup());
         sessionId = isResponseOK(resp) ? getField(resp, "Session") : "";
         if(!sessionId.isEmpty()){
