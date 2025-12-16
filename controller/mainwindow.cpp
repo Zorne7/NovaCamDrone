@@ -159,11 +159,11 @@ void MainWindow::resetSerial()
     serial.open(QIODevice::ReadWrite);
 }
 
-void MainWindow::sendCmd(const ClientPacket &cmd)
+bool MainWindow::sendCmd(const ClientPacket &cmd)
 {
     if (!serial.isOpen()) {
         ui->log->append("Open serial before send command");
-        return;
+        return false;
     }
     const QByteArray data = toData(cmd);
     bool ok = serial.write(data) == data.size();
@@ -175,6 +175,7 @@ void MainWindow::sendCmd(const ClientPacket &cmd)
     } else {
         ui->log->append("Error sending cmd " + hex(cmd.type));
     }
+    return ok;
 }
 
 void MainWindow::sendSetConnection()
@@ -239,8 +240,17 @@ void MainWindow::setVideo()
 {
     ClientPacket cmd;
     cmd.type = PacketType_SetVideo;
-    cmd.data.videoEnabled = !ui->btnVideo->isChecked();
-    sendCmd(cmd);
+    cmd.data.videoEnabled = ui->btnVideo->isChecked();
+    bool ok = sendCmd(cmd);
+    if(!ok){
+        ui->btnVideo->setChecked(!ui->btnVideo->isChecked());
+        return;
+    }
+    if(cmd.data.videoEnabled){
+        ui->log->append("Video enabled");
+    }else{
+        ui->log->append("Video disabled");
+    }
 }
 
 void MainWindow::sendStopControl()
@@ -302,10 +312,13 @@ void MainWindow::parseFeedback()
 {
     switch (fdbk.type) {
     case PacketType_Ack:
-        if (fdbk.data.ack.val == AckVal_OK || ui->debugCheck->isChecked()) {
+        if (fdbk.data.ack.val == AckVal_KO || ui->debugCheck->isChecked()) {
             ui->log->append(QString("Ack: Cmd = %1, Val = %2")
                                 .arg(hex(fdbk.data.ack.cmd))
                                 .arg(hex(fdbk.data.ack.val)));
+        }
+        if (fdbk.data.ack.val == AckVal_KO && fdbk.data.ack.cmd == PacketType_SetVideo) {
+            ui->btnVideo->setChecked(!ui->btnVideo->isChecked());
         }
         break;
 
