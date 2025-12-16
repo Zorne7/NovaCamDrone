@@ -9,10 +9,15 @@
 #include "../protocol.h"
 
 // ===== CONFIG =====
-#define LOOP_DELAY  1
-#define SERIAL_BAUD 921600
-#define RTSP_RESPONSE_TIMEOUT_MS 1000
-#define RTSP_KEEPALIVE_INTERVAL_MS 5000
+#define LOOP_DELAY                  1
+#define SERIAL_BAUD                 921600
+#define RTSP_VER                    "1.0"
+#define RTSP_USER_AGENT             "Lavf57.71.100"
+#define RTSP_END_PAR                "\r\n"
+#define RTSP_END_SECTION            RTSP_END_PAR RTSP_END_PAR
+#define RTSP_CLIENT_PORTS           STR(DRONE_RTP_PORT) "-" STR(DRONE_RTCP_PORT)
+#define RTSP_RESPONSE_TIMEOUT_MS    1000
+#define RTSP_KEEPALIVE_INTERVAL_MS  5000
 
 // ===== TYPES =====
 class RTSP {
@@ -105,22 +110,23 @@ public:
   }
 
 private:
-  static const String END_SUBSECTION = "\r\n";
-  static const String END_SECTION = END_SUBSECTION + END_SUBSECTION;
-
   static inline bool isResponseOK(const String &resp) {
-    return resp.startsWith("RTSP/1.0 200 OK");
+    return resp.startsWith("RTSP/" RTSP_VER " 200 OK");
   }
 
   static inline String getSession(const String &resp) {
-    const int idx = resp.indexOf("Session:");
+    static const String SESSION_FIELD = "Session:";
+    
+    const int idx = resp.indexOf(SESSION_FIELD);
     const int end = resp.indexOf(END_SUBSECTION, idx);
-    String session = idx >= 0 ? resp.substring(idx + 8, end < 0 ? resp.length() : end) : "";
+    String session = idx >= 0 ? resp.substring(idx + SESSION_FIELD.length(), end < 0 ? resp.length() : end) : "";
     session.trim();
     return session;
   }
 
   String readResponse() {
+    static const String CONTENT_LEN_FIELD = "Content-Length:";
+
     String resp;
     if (!rtsp.connected()) {
       return resp;
@@ -132,19 +138,19 @@ private:
       if (rtsp.available()) {
         char c = rtsp.read();
         resp += c;
-        headerEnded = resp.endsWith(END_SECTION);
+        headerEnded = resp.endsWith(RTSP_END_SECTION);
       } else {
         delay(1);
       }
     }
     // find Content-Length
-    int idx = resp.indexOf("Content-Length:");
+    int idx = resp.indexOf(CONTENT_LEN_FIELD);
     if (!headerEnded || idx < 0) {
       return resp;  // no header ended or no body
     }
-    const int end = resp.indexOf(END_SUBSECTION, idx);
+    const int end = resp.indexOf(RTSP_END_SUBSECTION, idx);
     const int len = resp.substring(idx + 15, end).toInt();
-    const int headerEndPos = resp.indexOf(END_SECTION) + 4;
+    const int headerEndPos = resp.indexOf(RTSP_END_SECTION) + 4;
     const int targetLen = headerEndPos + len;
     // read body
     while (resp.length() < targetLen && millis() - start < RTSP_RESPONSE_TIMEOUT_MS) {
@@ -166,39 +172,38 @@ private:
   }
 
   String reqOptions() {
-    return  "OPTIONS " DRONE_CAM " RTSP/1.0" + END_SUBSECTION +
-            "CSeq: " + String(cseq++) + END_SUBSECTION +
-            "User-Agent: Lavf57.71.100" + END_SECTION;
+    return  "OPTIONS " DRONE_CAM " RTSP/" RTSP_VER RTSP_END_PAR
+            "CSeq: " + String(cseq++) + RTSP_END_PAR
+            "User-Agent: " RTSP_USER_AGENT RTSP_END_SECTION;
   }
 
   String reqDescribe() {
-    return  "DESCRIBE " DRONE_CAM " RTSP/1.0" + END_SUBSECTION +
-            "Accept: application/sdp" + END_SUBSECTION +
-            "CSeq: " + String(cseq++) + END_SUBSECTION +
-            "User-Agent: Lavf57.71.100" + END_SECTION;
+    return  "DESCRIBE " DRONE_CAM " RTSP/" RTSP_VER RTSP_END_PAR
+            "Accept: application/sdp" RTSP_END_PAR
+            "CSeq: " + String(cseq++) + RTSP_END_PAR
+            "User-Agent: " RTSP_USER_AGENT RTSP_END_SECTION;
   }
 
   String reqSetup() {
-    static const String CLIENT_PORT = STR(DRONE_RTP_PORT) "-" STR(DRONE_RTCP_PORT);
-    return  "SETUP " DRONE_CAM "/track0 RTSP/1.0" + END_SUBSECTION +
-            "Transport: RTP/AVP/UDP;unicast;client_port=" + CLIENT_PORT + END_SUBSECTION +
-            "CSeq: " + String(cseq++) + END_SUBSECTION +
-            "User-Agent: Lavf57.71.100" + END_SECTION;
+    return  "SETUP " DRONE_CAM "/track0 RTSP/" RTSP_VER RTSP_END_PAR
+            "Transport: RTP/AVP/UDP;unicast;client_port=" RTSP_CLIENT_PORTS RTSP_END_PAR
+            "CSeq: " + String(cseq++) + RTSP_END_PAR
+            "User-Agent: " RTSP_USER_AGENT RTSP_END_SECTION;
   }
 
   String reqPlay() {
-    return  "PLAY " DRONE_CAM "/ RTSP/1.0" + END_SUBSECTION +
-            "Range: npt=0.000-" + END_SUBSECTION +
-            "CSeq: " + String(cseq++) + END_SUBSECTION +
-            "User-Agent: Lavf57.71.100" + END_SUBSECTION +
-            "Session: " + sessionId + END_SECTION;
+    return  "PLAY " DRONE_CAM "/ RTSP/" RTSP_VER RTSP_END_PAR
+            "Range: npt=0.000-" RTSP_END_PAR
+            "CSeq: " + String(cseq++) + RTSP_END_PAR
+            "User-Agent: " RTSP_USER_AGENT RTSP_END_PAR
+            "Session: " + sessionId + RTSP_END_SECTION;
   }
 
   String reqStop() {
-    return  "TEARDOWN " DRONE_CAM " RTSP/1.0" + END_SUBSECTION +
-            "CSeq: " + String(cseq++) + END_SUBSECTION +
-            "User-Agent: Lavf57.71.100" + END_SUBSECTION +
-            "Session: " + sessionId + END_SECTION;
+    return  "TEARDOWN " DRONE_CAM " RTSP/" RTSP_VER RTSP_END_PAR
+            "CSeq: " + String(cseq++) + RTSP_END_PAR
+            "User-Agent: " RTSP_USER_AGENT RTSP_END_PAR
+            "Session: " + sessionId + RTSP_END_SECTION;
   }
 
   WiFiClient rtsp;
