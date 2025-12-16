@@ -145,7 +145,7 @@ private:
     return sendRequest(req);
   }
 
-  void sendStop() {
+  bool sendStop() {
     const String req =
         "TEARDOWN " DRONE_CAM " RTSP/1.0\r\n"
         "CSeq: " + String(cseq++) + "\r\n"
