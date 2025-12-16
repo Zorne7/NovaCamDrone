@@ -116,7 +116,7 @@ private:
 
   static inline String getSession(const String &resp) {
     static const String SESSION_FIELD = "Session:";
-    
+
     const int idx = resp.indexOf(SESSION_FIELD);
     const int end = resp.indexOf(END_SUBSECTION, idx);
     String session = idx >= 0 ? resp.substring(idx + SESSION_FIELD.length(), end < 0 ? resp.length() : end) : "";
@@ -148,7 +148,7 @@ private:
     if (!headerEnded || idx < 0) {
       return resp;  // no header ended or no body
     }
-    const int end = resp.indexOf(RTSP_END_SUBSECTION, idx);
+    const int end = resp.indexOf(RTSP_END_PAR, idx);
     const int len = resp.substring(idx + 15, end).toInt();
     const int headerEndPos = resp.indexOf(RTSP_END_SECTION) + 4;
     const int targetLen = headerEndPos + len;

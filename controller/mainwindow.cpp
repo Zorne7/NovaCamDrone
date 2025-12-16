@@ -239,14 +239,14 @@ void MainWindow::sendFlyCmd()
 void MainWindow::setVideo()
 {
     ClientPacket cmd;
-    cmd.type = PacketType_SetVideo;
-    cmd.data.videoEnabled = ui->btnVideo->isChecked();
+    cmd.type = PacketType_SetStream;
+    cmd.data.streamStatusReq = ui->btnVideo->isChecked() ? StreamStatus_Enabled : StreamStatus_Disabled;
     bool ok = sendCmd(cmd);
     if(!ok){
         ui->btnVideo->setChecked(!ui->btnVideo->isChecked());
         return;
     }
-    if(cmd.data.videoEnabled){
+    if(cmd.data.streamStatusReq == StreamStatus_Enabled){
         ui->log->append("Video enabled");
     }else{
         ui->log->append("Video disabled");
@@ -317,7 +317,7 @@ void MainWindow::parseFeedback()
                                 .arg(hex(fdbk.data.ack.cmd))
                                 .arg(hex(fdbk.data.ack.val)));
         }
-        if (fdbk.data.ack.val == AckVal_KO && fdbk.data.ack.cmd == PacketType_SetVideo) {
+        if (fdbk.data.ack.val == AckVal_KO && fdbk.data.ack.cmd == PacketType_SetStream) {
             ui->btnVideo->setChecked(!ui->btnVideo->isChecked());
         }
         break;
@@ -341,7 +341,7 @@ void MainWindow::parseFeedback()
         }
         break;
 
-    case PacketType_DroneVideo:
+    case PacketType_DroneStream:
         videoData = VideoData();
         videoData.size = fdbk.data.videoPayloadSize;
         break;
@@ -376,6 +376,9 @@ void MainWindow::readSerial()
 
         if(remaningVideoData > 0){
             videoData.wIdx += r;
+            if(videoData.remaningSize() <= 0){
+                ui->log->append("VIDEO RECEIVED " + num2str(videoData.size));
+            }
         }else{
             parseFeedback();
         }
