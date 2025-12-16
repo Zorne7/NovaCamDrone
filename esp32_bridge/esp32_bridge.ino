@@ -44,7 +44,7 @@ public:
     return true;
   }
 
-  bool isConnected() const { return rtsp.connected(); }
+  bool isConnected() { return rtsp.connected(); }
 
   bool setStream(uint8_t enabled) {
     bool ok = enabled ? sendPlay() : sendStop();
@@ -98,11 +98,7 @@ private:
   }
 
   bool sendRequest(const String &req) {
-    if(!rtsp.connected()){
-      return false;
-    }
-    rtsp.print(req);
-    return true;
+    return rtsp.print(req) > 0;
   }
 
   bool sendOptions() {
@@ -181,7 +177,7 @@ public:
 
   bool isConnected() const { return WiFi.status() == WL_CONNECTED; }
 
-  ConnStatus_t connectionStatus() const { 
+  ConnStatus_t connectionStatus() { 
     return !isConnected() ? Disconnected : (!rtsp.isConnected() ? ConnectedControl : Connected);
   }
 
