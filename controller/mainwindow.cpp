@@ -353,6 +353,13 @@ void MainWindow::parseFeedback()
     }
 }
 
+void MainWindow::processVideoData()
+{
+    // TODO: to implement
+    QByteArray d = toData(videoData.payload, videoData.size);
+    qDebug() << "VIDEO DATA ["+num2str(d.size())+"]: "+d.toHex();
+}
+
 void MainWindow::readSerial()
 {
     while (serial.bytesAvailable() > 0) {
@@ -377,8 +384,7 @@ void MainWindow::readSerial()
         if(remaningVideoData > 0){
             videoData.wIdx += r;
             if(videoData.remaningSize() <= 0){
-                const QByteArray video = toData(videoData.payload.data, videoData.size);
-                viewer.writeDatagram(video, size, QHostAddress("127.0.0.1"), 7777);
+                processVideoData();
                 videoData = VideoData();
             }
         }else{

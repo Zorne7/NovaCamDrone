@@ -8,7 +8,6 @@
 #include <QSerialPortInfo>
 #include <QTextEdit>
 #include <QTimer>
-#include <QUdpSocket>
 
 #include "../protocol.h"
 
@@ -46,6 +45,7 @@ private slots:
 
     void initCurrentValues();
     void parseFeedback();
+    void processVideoData();
 
 private:
     Ui::MainWindow *ui;
@@ -55,7 +55,7 @@ private:
     FlyControls flyControls;
     ClientPacket fdbk;
     VideoData videoData;
-    QUdpSocket viewer;
+    QByteArray currentFrame;
 };
 
 #endif // MAINWINDOW_H
