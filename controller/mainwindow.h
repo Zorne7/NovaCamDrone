@@ -30,12 +30,11 @@ private slots:
     void sendGetConnection();
     void setHeartbeat();
     void setFlyCmd();
-    void sendEnableControl();
+    void setVideo();
     void sendStopControl();
     void sendSwitchCamFront();
     void sendSwitchCamBack();
 
-private:
     void resetSerial();
     void sendCmd(const ClientPacket &cmd);
     void readSerial();
@@ -47,6 +46,7 @@ private:
     void initCurrentValues();
     void parseFeedback();
 
+private:
     Ui::MainWindow *ui;
     QSerialPort serial;
     QTimer timerHb;

@@ -84,6 +84,7 @@ enum ClientPacketType {
     // Command
     PacketType_SetConnection,
     PacketType_GetConnection,
+    PacketType_SetVideo,
     PacketType_DroneCmd,
     PacketType_FlyCmd,
     // Response
@@ -161,9 +162,12 @@ struct Ack {
 struct ClientPacket {
     ClientPacketType_t type = PacketType_Invalid;
     union Data {
+        // Commands
         ConnParams connParams;
+        uint8_t videoEnabled;
         DroneCmd droneCmd;
         FlyCmd flyCmd;
+        // Response
         Ack ack;
         ConnStatus_t connStatus;
         DroneTlm droneTlm;

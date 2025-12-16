@@ -62,7 +62,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->btnGetConn, &QPushButton::clicked, this, &MainWindow::sendGetConnection);
     connect(ui->btnHeartbeat, &QPushButton::clicked, this, &MainWindow::setHeartbeat);
     connect(ui->btnFly, &QPushButton::clicked, this, &MainWindow::setFlyCmd);
-    connect(ui->btnEnable, &QPushButton::clicked, this, &MainWindow::sendEnableControl);
+    connect(ui->btnVideo, &QPushButton::clicked, this, &MainWindow::setVideo);
     connect(ui->btnStop, &QPushButton::clicked, this, &MainWindow::sendStopControl);
     connect(ui->btnCamFront, &QPushButton::clicked, this, &MainWindow::sendSwitchCamFront);
     connect(ui->btnCamBack, &QPushButton::clicked, this, &MainWindow::sendSwitchCamBack);
@@ -110,6 +110,10 @@ MainWindow::MainWindow(QWidget *parent)
     });
     connect(ui->unlockCheck, &QCheckBox::stateChanged, this, [=](int en) {
         set_flag(flyControls.flags, ControlFlag_Unlock, en);
+        ui->flagsLine->setText(hex(flyControls.flags));
+    });
+    connect(ui->unknownCheck, &QCheckBox::stateChanged, this, [=](int en) {
+        set_flag(flyControls.flags, ControlFlag_Unknown, en);
         ui->flagsLine->setText(hex(flyControls.flags));
     });
     connect(ui->gyroCorrCheck, &QCheckBox::stateChanged, this, [=](int en) {
@@ -231,9 +235,12 @@ void MainWindow::sendFlyCmd()
     sendCmd(cmd);
 }
 
-void MainWindow::sendEnableControl()
+void MainWindow::setVideo()
 {
-    ui->log->append("FIXME: to be implemented");
+    ClientPacket cmd;
+    cmd.type = PacketType_SetVideo;
+    cmd.data.videoEnabled = !ui->btnVideo->isChecked();
+    sendCmd(cmd);
 }
 
 void MainWindow::sendStopControl()
