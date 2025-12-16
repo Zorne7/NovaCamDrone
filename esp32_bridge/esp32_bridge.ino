@@ -118,7 +118,7 @@ private:
     static const String SESSION_FIELD = "Session:";
 
     const int idx = resp.indexOf(SESSION_FIELD);
-    const int end = resp.indexOf(END_SUBSECTION, idx);
+    const int end = resp.indexOf(RTSP_END_PAR, idx);
     String session = idx >= 0 ? resp.substring(idx + SESSION_FIELD.length(), end < 0 ? resp.length() : end) : "";
     session.trim();
     return session;
