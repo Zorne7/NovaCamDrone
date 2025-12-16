@@ -11,14 +11,18 @@
 // ===== CONFIG =====
 #define LOOP_DELAY  1
 #define SERIAL_BAUD 921600
+#define RTSP_KEEPALIVE_INTERVAL_MS 5000
 
 // ===== TYPES =====
 class RTSP {
 public:
+
   bool init() {
+
     if(!rtsp.connect(DRONE_IP, DRONE_VIDEO_PORT)){
       return false;
     }
+
     String resp;
     sendOptions();
     resp = readResponse();
@@ -26,91 +30,119 @@ public:
     resp = readResponse();
     sendSetup();
     resp = readResponse();
-    sessionId = extractSession(resp);
-    sendPlay();
-    resp = readResponse();
-    rtp.begin(DRONE_RTP_PORT);
+
+    // extract session
+    const int idx = resp.indexOf("Session:");
+    const int end = resp.indexOf("\r\n", idx);
+    sessionId = idx >= 0 ? resp.substring(idx + 8, end < 0 ? resp.length() : end) : "";
+    sessionId.trim();
+
     lastKeepAlive = millis();
+
+    rtp.begin(DRONE_RTP_PORT);
+
     return true;
+  }
+
+  bool isConnected() const { return rtsp.connected(); }
+
+  bool setStream(uint8_t enabled) {
+    bool ok = enabled ? sendPlay() : sendStop();
+    if(ok){
+      lastKeepAlive = millis();
+      String resp = readResponse();
+    }
+    return ok;
+  }
+
+  void close() {
+    rtsp.stop();
+    rtp.stop();
+    lastKeepAlive = 0;
   }
 
   int pollRTP(VideoPayload *payload) {
     int packetSize = rtp.parsePacket();
     if (packetSize > 0) {
-        return rtp.read(payload->data, MIN(packetSize, sizeof(payload->data)));
+      return rtp.read(payload->data, MIN(packetSize, sizeof(payload->data)));
     }
     return 0;
   }
   
-  void sendKeepalive() {
-    if (rtsp.connected() && millis() - lastKeepAlive > 5000) {
-        sendOptions(); // keepalive
-        lastKeepAlive = millis();
+  bool sendKeepalive() {
+    bool ok = false;
+    if (rtsp.connected() && millis() - lastKeepAlive > RTSP_KEEPALIVE_INTERVAL_MS) {
+      ok = sendOptions(); // keepalive
+      lastKeepAlive = millis();
     }
+    return ok;
   }
 
 private:
   String readResponse() {
-      String resp;
-      while (!rtsp.available()) {
-          delay(1);
+    if(!rtsp.connected()){
+      return "";
+    }
+    String resp;
+    while (!rtsp.available()) {
+      delay(1);
+    }
+    while (rtsp.available()) {
+      char c = rtsp.read();
+      resp += c;
+      if (resp.endsWith("\r\n\r\n")) {
+        break;
       }
-      while (rtsp.available()) {
-          char c = rtsp.read();
-          resp += c;
-          if (resp.endsWith("\r\n\r\n")) {
-              break;
-          }
-      }
-      return resp;
+    }
+    return resp;
   }
 
-  String extractSession(const String& resp) {
-      const int idx = resp.indexOf("Session:");
-      const int end = resp.indexOf("\r\n", idx);
-      String line = idx >= 0 ? resp.substring(idx + 8, end < 0 ? resp.length() : end) : "";
-      line.trim();
-      return line;
+  bool sendRequest(const String &req) {
+    if(!rtsp.connected()){
+      return false;
+    }
+    rtsp.print(req);
+    return true;
   }
 
-  void sendOptions() {
-      const String req =
-          "OPTIONS " DRONE_CAM " RTSP/1.0\r\n"
-          "CSeq: " + String(cseq++) + "\r\n"
-          "User-Agent: Lavf57.71.100\r\n"
-          "\r\n";
-      rtsp.print(req);
+  bool sendOptions() {
+    const String req =
+        "OPTIONS " DRONE_CAM " RTSP/1.0\r\n"
+        "CSeq: " + String(cseq++) + "\r\n"
+        "User-Agent: Lavf57.71.100\r\n"
+        "\r\n";
+    return sendRequest(req);
   }
 
-  void sendDescribe() {
-      const String req =
-          "DESCRIBE " DRONE_CAM " RTSP/1.0\r\n"
-          "Accept: application/sdp\r\n"
-          "CSeq: " + String(cseq++) + "\r\n"
-          "User-Agent: Lavf57.71.100\r\n"
-          "\r\n";
-      rtsp.print(req);
+  bool sendDescribe() {
+    const String req =
+        "DESCRIBE " DRONE_CAM " RTSP/1.0\r\n"
+        "Accept: application/sdp\r\n"
+        "CSeq: " + String(cseq++) + "\r\n"
+        "User-Agent: Lavf57.71.100\r\n"
+        "\r\n";
+    return sendRequest(req);
   }
 
-  void sendSetup() {
-      const String req =
-          "SETUP " DRONE_CAM "/track0 RTSP/1.0\r\n"
-          "Transport: RTP/AVP/UDP;unicast;client_port=" STR(DRONE_RTP_PORT) "-" STR(DRONE_RTCP_PORT) "\r\n"
-          "CSeq: " + String(cseq++) + "\r\n"
-          "User-Agent: Lavf57.71.100\r\n"
-          "\r\n";
-      rtsp.print(req);
+  bool sendSetup() {
+    const String req =
+        "SETUP " DRONE_CAM "/track0 RTSP/1.0\r\n"
+        "Transport: RTP/AVP/UDP;unicast;client_port=" STR(DRONE_RTP_PORT) "-" STR(DRONE_RTCP_PORT) "\r\n"
+        "CSeq: " + String(cseq++) + "\r\n"
+        "User-Agent: Lavf57.71.100\r\n"
+        "\r\n";
+    return sendRequest(req);
   }
 
-  void sendPlay() {
-      const String req =
-          "PLAY " DRONE_CAM "/ RTSP/1.0\r\n"
-          "Range: npt=0.000-\r\n"
-          "CSeq: " + String(cseq++) + "\r\n"
-          "User-Agent: Lavf57.71.100\r\n"
-          "Session: " + sessionId + "\r\n"
-          "\r\n";
-      rtsp.print(req);
+  bool sendPlay() {
+    const String req =
+        "PLAY " DRONE_CAM "/ RTSP/1.0\r\n"
+        "Range: npt=0.000-\r\n"
+        "CSeq: " + String(cseq++) + "\r\n"
+        "User-Agent: Lavf57.71.100\r\n"
+        "Session: " + sessionId + "\r\n"
+        "\r\n";
+    return sendRequest(req);
   }
 
   void sendStop() {
@@ -120,14 +152,14 @@ private:
         "User-Agent: Lavf57.71.100\r\n"
         "Session: " + sessionId + "\r\n"
         "\r\n";
-    rtsp.print(req);
+    return sendRequest(req);
   }
 
   WiFiClient rtsp;
   WiFiUDP rtp;
   unsigned long lastKeepAlive = 0;
-  int cseq = 1;
-  String sessionId = "";
+  int cseq                    = 1;
+  String sessionId            = "";
 };
 
 class Bridge {
@@ -148,10 +180,17 @@ public:
   }
 
   bool isConnected() const { return WiFi.status() == WL_CONNECTED; }
+
+  ConnStatus_t connectionStatus() const { 
+    return !isConnected() ? Disconnected : (!rtsp.isConnected() ? ConnectedControl : Connected);
+  }
+
   void disconnectFromDrone() {
+    rtsp.close();
     udp.stop();
     WiFi.disconnect(true);
   }
+
   bool connectToDrone() {
     static const int maxAttempts = 10;
     if(!connParams.valid()){
@@ -188,9 +227,13 @@ public:
 
       case PacketType_GetConnection:
         clientFdbk.type = PacketType_ConnectionStat;
-        clientFdbk.data.connected = isConnected();
+        clientFdbk.data.connStatus = connectionStatus();
         sendToClient(clientFdbk);
         return; // return to not send ack
+
+      case PacketType_SetVideo: 
+        ok = rtsp.setStream(clientCmd.data.videoEnabled);
+        break;
 
       case PacketType_DroneCmd: 
         ok = sendToDrone((const uint8_t *)&clientCmd.data.droneCmd, sizeof(clientCmd.data.droneCmd));
@@ -206,7 +249,7 @@ public:
 
     clientFdbk.type = PacketType_Ack;
     clientFdbk.data.ack.cmd = clientCmd.type;
-    clientFdbk.data.ack.res = ok;
+    clientFdbk.data.ack.val = ok;
 	  sendToClient(clientFdbk);
   }
 
