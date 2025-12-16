@@ -19,10 +19,16 @@ public:
     if(!rtsp.connect(DRONE_IP, DRONE_VIDEO_PORT)){
       return false;
     }
+    String resp;
     sendOptions();
+    resp = readResponse();
     sendDescribe();
+    resp = readResponse();
     sendSetup();
+    resp = readResponse();
+    sessionId = extractSession(resp);
     sendPlay();
+    resp = readResponse();
     rtp.begin(DRONE_RTP_PORT);
     lastKeepAlive = millis();
     return true;
@@ -45,62 +51,59 @@ public:
 
 private:
   String readResponse() {
-    String resp;
-    unsigned long start = millis();
-    while (millis() - start < 1000) {
-        while (rtsp.available()) {
-            char c = rtsp.read();
-            resp += c;
-        }
-    }
-    return resp;
+      String resp;
+      while (!rtsp.available()) {
+          delay(1);
+      }
+      while (rtsp.available()) {
+          char c = rtsp.read();
+          resp += c;
+          if (resp.endsWith("\r\n\r\n")) {
+              break;
+          }
+      }
+      return resp;
   }
 
   String extractSession(const String& resp) {
-      int idx = resp.indexOf("Session:");
-      if (idx < 0) return "";
-      int end = resp.indexOf("\r\n", idx);
-      if (end < 0) end = resp.length();
-      String line = resp.substring(idx + 8, end);
+      const int idx = resp.indexOf("Session:");
+      const int end = resp.indexOf("\r\n", idx);
+      String line = idx >= 0 ? resp.substring(idx + 8, end < 0 ? resp.length() : end) : "";
       line.trim();
       return line;
   }
 
   void sendOptions() {
-      String req =
+      const String req =
           "OPTIONS " DRONE_CAM " RTSP/1.0\r\n"
           "CSeq: " + String(cseq++) + "\r\n"
           "User-Agent: Lavf57.71.100\r\n"
           "\r\n";
       rtsp.print(req);
-      readResponse();
   }
 
   void sendDescribe() {
-      String req =
+      const String req =
           "DESCRIBE " DRONE_CAM " RTSP/1.0\r\n"
           "Accept: application/sdp\r\n"
           "CSeq: " + String(cseq++) + "\r\n"
           "User-Agent: Lavf57.71.100\r\n"
           "\r\n";
       rtsp.print(req);
-      String resp = readResponse();
   }
 
   void sendSetup() {
-      String req =
+      const String req =
           "SETUP " DRONE_CAM "/track0 RTSP/1.0\r\n"
           "Transport: RTP/AVP/UDP;unicast;client_port=" STR(DRONE_RTP_PORT) "-" STR(DRONE_RTCP_PORT) "\r\n"
           "CSeq: " + String(cseq++) + "\r\n"
           "User-Agent: Lavf57.71.100\r\n"
           "\r\n";
       rtsp.print(req);
-      String resp = readResponse();
-      sessionId = extractSession(resp);
   }
 
   void sendPlay() {
-      String req =
+      const String req =
           "PLAY " DRONE_CAM "/ RTSP/1.0\r\n"
           "Range: npt=0.000-\r\n"
           "CSeq: " + String(cseq++) + "\r\n"
@@ -108,7 +111,16 @@ private:
           "Session: " + sessionId + "\r\n"
           "\r\n";
       rtsp.print(req);
-      readResponse();
+  }
+
+  void sendStop() {
+    const String req =
+        "TEARDOWN " DRONE_CAM " RTSP/1.0\r\n"
+        "CSeq: " + String(cseq++) + "\r\n"
+        "User-Agent: Lavf57.71.100\r\n"
+        "Session: " + sessionId + "\r\n"
+        "\r\n";
+    rtsp.print(req);
   }
 
   WiFiClient rtsp;
