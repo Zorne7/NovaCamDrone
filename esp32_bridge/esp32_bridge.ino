@@ -19,40 +19,18 @@ class RTSP {
 public:
 
   bool init() {
-
     if(!rtsp.connect(DRONE_IP, DRONE_VIDEO_PORT)){
       return false;
     }
 
-    String resp;
-
-    sendOptions();
-    resp = readResponse();
+    String resp = sendAndRead(reqOptions());
     if(!isResponseOK(resp)){
       close();
       return false;
     }
 
-    sendDescribe();
-    resp = readResponse();
+    resp = sendAndRead(reqDescribe());
     if(!isResponseOK(resp)){
-      close();
-      return false;
-    }
-
-    sendSetup();
-    resp = readResponse();
-    if(!isResponseOK(resp)){
-      close();
-      return false;
-    }
-
-    // extract session
-    const int idx = resp.indexOf("Session:");
-    const int end = resp.indexOf(END_SUBSECTION, idx);
-    sessionId = idx >= 0 ? resp.substring(idx + 8, end < 0 ? resp.length() : end) : "";
-    sessionId.trim();
-    if (sessionId.length() == 0) {
       close();
       return false;
     }
@@ -66,12 +44,37 @@ public:
 
   bool isConnected() { return rtsp.connected(); }
 
-  bool setStream(uint8_t enabled) {
-    bool ok = enabled ? sendPlay() : sendStop();
+  StreamStatus_t streamStatus() { return sessionId.isEmpty() ? StreamStatus_Disabled : StreamStatus_Enabled; }
+
+  bool setStreamStatus(StreamStatus_t status) {
+    String resp;
+    bool ok = false;
+
+    switch (status){
+
+      case StreamStatus_Enabled:
+        resp = sendAndRead(reqSetup());
+        sessionId = isResponseOK(resp) ? getSession(resp) : "";
+        if(!sessionId.isEmpty()){
+          resp = sendAndRead(reqPlay());
+        }
+        ok = !sessionId.isEmpty() && isResponseOK(resp);
+        break;
+
+      case StreamStatus_Disabled:
+        resp = sendAndRead(reqStop());
+        ok = isResponseOK(resp);
+        if(ok){
+          sessionId = "";
+        }
+        break;
+
+      default:
+        break;
+    }
+
     if(ok){
       lastKeepAlive = millis();
-      String resp = readResponse();
-      ok = isResponseOK(resp);
     }
     return ok;
   }
@@ -94,9 +97,9 @@ public:
   bool sendKeepalive() {
     bool ok = false;
     if (rtsp.connected() && millis() - lastKeepAlive > RTSP_KEEPALIVE_INTERVAL_MS) {
-      ok = sendOptions(); // keepalive
+      ok = sendRequest(reqOptions()); // keepalive
       lastKeepAlive = millis();
-      String resp = readResponse();
+      readResponse(); // discard response
     }
     return ok;
   }
@@ -105,15 +108,24 @@ private:
   static const String END_SUBSECTION = "\r\n";
   static const String END_SECTION = END_SUBSECTION + END_SUBSECTION;
 
+  static inline bool isResponseOK(const String &resp) {
+    return resp.startsWith("RTSP/1.0 200 OK");
+  }
+
+  static inline String getSession(const String &resp) {
+    const int idx = resp.indexOf("Session:");
+    const int end = resp.indexOf(END_SUBSECTION, idx);
+    String session = idx >= 0 ? resp.substring(idx + 8, end < 0 ? resp.length() : end) : "";
+    session.trim();
+    return session;
+  }
+
   String readResponse() {
     String resp;
-
     if (!rtsp.connected()) {
       return resp;
     }
-
     const unsigned long start = millis();
-
     // read header
     bool headerEnded = false;
     while (!headerEnded && millis() - start < RTSP_RESPONSE_TIMEOUT_MS) {
@@ -125,19 +137,15 @@ private:
         delay(1);
       }
     }
-
     // find Content-Length
     int idx = resp.indexOf("Content-Length:");
     if (!headerEnded || idx < 0) {
       return resp;  // no header ended or no body
     }
-
-    int end = resp.indexOf(END_SUBSECTION, idx);
-    int len = resp.substring(idx + 15, end).toInt();
-
-    int headerEndPos = resp.indexOf(END_SECTION) + 4;
-    int targetLen = headerEndPos + len;
-
+    const int end = resp.indexOf(END_SUBSECTION, idx);
+    const int len = resp.substring(idx + 15, end).toInt();
+    const int headerEndPos = resp.indexOf(END_SECTION) + 4;
+    const int targetLen = headerEndPos + len;
     // read body
     while (resp.length() < targetLen && millis() - start < RTSP_RESPONSE_TIMEOUT_MS) {
       if (rtsp.available()) {
@@ -146,61 +154,51 @@ private:
         delay(1);
       }
     }
-
     return resp;
-  }
-
-  bool isResponseOK(const String &resp) {
-    return resp.startsWith("RTSP/1.0 200 OK");
   }
 
   bool sendRequest(const String &req) {
     return rtsp.print(req) > 0;
   }
 
-  bool sendOptions() {
-    const String req =
-        "OPTIONS " DRONE_CAM " RTSP/1.0" + END_SUBSECTION +
-        "CSeq: " + String(cseq++) + END_SUBSECTION +
-        "User-Agent: Lavf57.71.100" + END_SECTION;
-    return sendRequest(req);
+  String sendAndRead(const String &req) {
+    return sendRequest(req) ? readResponse() : "";
   }
 
-  bool sendDescribe() {
-    const String req =
-        "DESCRIBE " DRONE_CAM " RTSP/1.0" + END_SUBSECTION +
-        "Accept: application/sdp" + END_SUBSECTION +
-        "CSeq: " + String(cseq++) + END_SUBSECTION +
-        "User-Agent: Lavf57.71.100" + END_SECTION;
-    return sendRequest(req);
+  String reqOptions() {
+    return  "OPTIONS " DRONE_CAM " RTSP/1.0" + END_SUBSECTION +
+            "CSeq: " + String(cseq++) + END_SUBSECTION +
+            "User-Agent: Lavf57.71.100" + END_SECTION;
   }
 
-  bool sendSetup() {
-    const String req =
-        "SETUP " DRONE_CAM "/track0 RTSP/1.0" + END_SUBSECTION +
-        "Transport: RTP/AVP/UDP;unicast;client_port=" STR(DRONE_RTP_PORT) "-" STR(DRONE_RTCP_PORT) + END_SUBSECTION +
-        "CSeq: " + String(cseq++) + END_SUBSECTION +
-        "User-Agent: Lavf57.71.100" + END_SECTION;
-    return sendRequest(req);
+  String reqDescribe() {
+    return  "DESCRIBE " DRONE_CAM " RTSP/1.0" + END_SUBSECTION +
+            "Accept: application/sdp" + END_SUBSECTION +
+            "CSeq: " + String(cseq++) + END_SUBSECTION +
+            "User-Agent: Lavf57.71.100" + END_SECTION;
   }
 
-  bool sendPlay() {
-    const String req =
-        "PLAY " DRONE_CAM "/ RTSP/1.0" + END_SUBSECTION +
-        "Range: npt=0.000-" + END_SUBSECTION +
-        "CSeq: " + String(cseq++) + END_SUBSECTION +
-        "User-Agent: Lavf57.71.100" + END_SUBSECTION +
-        "Session: " + sessionId + END_SECTION;
-    return sendRequest(req);
+  String reqSetup() {
+    static const String CLIENT_PORT = STR(DRONE_RTP_PORT) "-" STR(DRONE_RTCP_PORT);
+    return  "SETUP " DRONE_CAM "/track0 RTSP/1.0" + END_SUBSECTION +
+            "Transport: RTP/AVP/UDP;unicast;client_port=" + CLIENT_PORT + END_SUBSECTION +
+            "CSeq: " + String(cseq++) + END_SUBSECTION +
+            "User-Agent: Lavf57.71.100" + END_SECTION;
   }
 
-  bool sendStop() {
-    const String req =
-        "TEARDOWN " DRONE_CAM " RTSP/1.0" + END_SUBSECTION +
-        "CSeq: " + String(cseq++) + END_SUBSECTION +
-        "User-Agent: Lavf57.71.100" + END_SUBSECTION +
-        "Session: " + sessionId + END_SECTION;
-    return sendRequest(req);
+  String reqPlay() {
+    return  "PLAY " DRONE_CAM "/ RTSP/1.0" + END_SUBSECTION +
+            "Range: npt=0.000-" + END_SUBSECTION +
+            "CSeq: " + String(cseq++) + END_SUBSECTION +
+            "User-Agent: Lavf57.71.100" + END_SUBSECTION +
+            "Session: " + sessionId + END_SECTION;
+  }
+
+  String reqStop() {
+    return  "TEARDOWN " DRONE_CAM " RTSP/1.0" + END_SUBSECTION +
+            "CSeq: " + String(cseq++) + END_SUBSECTION +
+            "User-Agent: Lavf57.71.100" + END_SUBSECTION +
+            "Session: " + sessionId + END_SECTION;
   }
 
   WiFiClient rtsp;
@@ -279,8 +277,14 @@ public:
         sendToClient(clientFdbk);
         return; // return to not send ack
 
-      case PacketType_SetVideo: 
-        ok = rtsp.setStream(clientCmd.data.videoEnabled);
+      case PacketType_GetStream:
+        clientFdbk.type = PacketType_StreamStat;
+        clientFdbk.data.streamStatus = rtsp.streamStatus();
+        sendToClient(clientFdbk);
+        return; // return to not send ack
+
+      case PacketType_SetStream: 
+        ok = rtsp.setStreamStatus(clientCmd.data.streamStatusReq);
         break;
 
       case PacketType_DroneCmd: 
@@ -316,7 +320,7 @@ public:
 
   void forwardDroneVideo() {
     rtsp.sendKeepalive();
-    clientFdbk.type = PacketType_DroneVideo;
+    clientFdbk.type = PacketType_DroneStream;
     int videoPayloadSize = rtsp.pollRTP(&videoPayload);
     while(videoPayloadSize > 0) {
       clientFdbk.data.videoPayloadSize = videoPayloadSize;

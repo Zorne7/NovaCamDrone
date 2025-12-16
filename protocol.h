@@ -49,8 +49,14 @@ typedef uint8_t ConnStatus_t;
 enum ConnStatus {
     Disconnected        = 0x00,
     ConnectedControl    = 0x01,
-    ConnectedVideo      = 0x02,
-    Connected           = ConnectedControl | ConnectedVideo
+    ConnectedCam        = 0x02,
+    Connected           = ConnectedControl | ConnectedCam
+};
+
+typedef uint8_t StreamStatus_t;
+enum StreamStatus {
+    StreamStatus_Disabled = 0,
+    StreamStatus_Enabled  = 1
 };
 
 typedef uint8_t AckVal_t;
@@ -84,14 +90,16 @@ enum ClientPacketType {
     // Command
     PacketType_SetConnection,
     PacketType_GetConnection,
-    PacketType_SetVideo,
+    PacketType_SetStream,
+    PacketType_GetStream,
     PacketType_DroneCmd,
     PacketType_FlyCmd,
     // Response
     PacketType_Ack,
     PacketType_ConnectionStat,
+    PacketType_StreamStat,
     PacketType_DroneTlm,
-    PacketType_DroneVideo
+    PacketType_DroneStream
 };
 
 // PROTOCOL STRUCTURES DEFINITION
@@ -164,12 +172,13 @@ struct ClientPacket {
     union Data {
         // Commands
         ConnParams connParams;
-        uint8_t videoEnabled;
+        StreamStatus_t streamStatusReq;
         DroneCmd droneCmd;
         FlyCmd flyCmd;
         // Response
         Ack ack;
         ConnStatus_t connStatus;
+        StreamStatus_t streamStatus;
         DroneTlm droneTlm;
         data_size_t videoPayloadSize;
     } data = Data{0};
