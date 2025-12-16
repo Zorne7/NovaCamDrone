@@ -25,12 +25,27 @@ public:
     }
 
     String resp;
+
     sendOptions();
     resp = readResponse();
+    if(!isResponseOK(resp)){
+      close();
+      return false;
+    }
+
     sendDescribe();
     resp = readResponse();
+    if(!isResponseOK(resp)){
+      close();
+      return false;
+    }
+
     sendSetup();
     resp = readResponse();
+    if(!isResponseOK(resp)){
+      close();
+      return false;
+    }
 
     // extract session
     const int idx = resp.indexOf("Session:");
@@ -52,6 +67,7 @@ public:
     if(ok){
       lastKeepAlive = millis();
       String resp = readResponse();
+      ok = isResponseOK(resp);
     }
     return ok;
   }
@@ -75,28 +91,70 @@ public:
     if (rtsp.connected() && millis() - lastKeepAlive > RTSP_KEEPALIVE_INTERVAL_MS) {
       ok = sendOptions(); // keepalive
       lastKeepAlive = millis();
+      String resp = readResponse();
     }
     return ok;
   }
 
 private:
   String readResponse() {
-    if(!rtsp.connected()){
-      return "";
-    }
-    unsigned long start = millis();
-    while (!rtsp.available() && millis() - start < RTSP_RESPONSE_TIMEOUT_MS) {
-        delay(1);
-    }
+
+    static const String END_RESP = "\r\n\r\n";
+
     String resp;
-    while (rtsp.available()) {
-      char c = rtsp.read();
-      resp += c;
-      if (resp.endsWith("\r\n\r\n")) {
-        break;
+
+    if (!rtsp.connected()) {
+      return resp;
+    }
+
+    unsigned long start = millis();
+
+    // wait 1 byte
+    while (!rtsp.available() && millis() - start < RTSP_RESPONSE_TIMEOUT_MS) {
+      delay(1);
+    }
+
+    // read header
+    bool headerEnded = false;
+    while (!headerEnded && millis() - start < RTSP_RESPONSE_TIMEOUT_MS) {
+      if (rtsp.available()) {
+        char c = rtsp.read();
+        resp += c;
+        headerEnded = resp.endsWith(END_RESP);
+      } else {
+        delay(1);
+      }
+    }
+
+    if (!headerEnded) {
+      return resp;
+    }
+
+    // find Content-Length
+    int idx = resp.indexOf("Content-Length:");
+    if (idx < 0) {
+      return resp;  // no body
+    }
+
+    int end = resp.indexOf("\r\n", idx);
+    int len = resp.substring(idx + 15, end).toInt();
+
+    int headerEndPos = resp.indexOf(END_RESP) + 4;
+    int targetLen = headerEndPos + len;
+
+    // read body
+    while (resp.length() < targetLen && millis() - start < RTSP_RESPONSE_TIMEOUT_MS) {
+      if (rtsp.available()) {
+        resp += (char)rtsp.read();
+      } else {
+        delay(1);
       }
     }
     return resp;
+  }
+
+  bool isResponseOK(const String &resp) {
+    return resp.startsWith("RTSP/1.0 200 OK");
   }
 
   bool sendRequest(const String &req) {
