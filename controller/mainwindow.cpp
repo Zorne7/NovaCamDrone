@@ -144,7 +144,7 @@ void MainWindow::openSerial()
     if (!serial.open(QIODevice::ReadWrite)) {
         ui->log->append("Error opening serial " + portName);
     } else {
-        ui->log->append(QString("Serial %1 opened with %2 baud").arg(portName).arg(baudRate));
+        ui->log->append(QString("Serial %1 opened with baudrate %2").arg(portName).arg(baudRate));
         connect(&serial, &QSerialPort::readyRead, this, &MainWindow::readSerial);
     }
 }
@@ -291,52 +291,73 @@ void MainWindow::initCurrentValues()
     ui->gyroCorrCheck->setChecked(false);
 }
 
+void MainWindow::parseFeedback()
+{
+    switch (fdbk.type) {
+    case PacketType_Ack:
+        if (fdbk.data.ack.val == AckVal_OK || ui->debugCheck->isChecked()) {
+            ui->log->append(QString("Ack: Cmd = %1, Val = %2")
+                                .arg(hex(fdbk.data.ack.cmd))
+                                .arg(hex(fdbk.data.ack.val)));
+        }
+        break;
+
+    case PacketType_ConnectionStat:
+        ui->log->append("Connection status: " + hex(fdbk.data.connStatus));
+        break;
+
+    case PacketType_DroneTlm:
+        if(ui->debugCheck->isChecked()){
+            const QByteArray tlmData = toData(fdbk.data.droneTlm);
+            ui->log->append("TLM [" + num2str(tlmData.size()) + "]: " + tlmData.toHex());
+        }
+        switch(fdbk.data.droneTlm.fdbkType){
+        case FdbkType_Photo:
+            sendAckPhoto(); // TODO: send ack only if necessary
+            break;
+        case FdbkType_Video:
+            sendAckVideo(); // TODO: send ack only if necessary
+            break;
+        }
+        break;
+
+    case PacketType_DroneVideo:
+        videoData = VideoData();
+        videoData.size = fdbk.data.videoPayloadSize;
+        break;
+
+    default:
+        ui->log->append("Unknown feedback type: " + hex(fdbk.type));
+        resetSerial();
+        break;
+    }
+}
+
 void MainWindow::readSerial()
 {
-    while (serial.bytesAvailable() >= sizeof(fdbk)) {
-        int r = serial.read(reinterpret_cast<char *>(&fdbk), sizeof(fdbk));
-        if(r < sizeof(fdbk)){
+    while (serial.bytesAvailable() > 0) {
+
+        const int bytesAvailable = serial.bytesAvailable();
+        const int remaningVideoData = videoData.remaningSize();
+
+        char *ptr = remaningVideoData > 0 ? videoData.writePtr() : reinterpret_cast<char *>(&fdbk);
+        const int size = remaningVideoData > 0 ? MIN(bytesAvailable, remaningVideoData) : sizeof(fdbk);
+        if(bytesAvailable < size){
+            break;
+        }
+
+        int r = serial.read(ptr, size);
+        if(r < size){
             ui->log->append("Error reading packet from serial");
+            videoData = VideoData();
             resetSerial();
             break;
         }
 
-        switch (fdbk.type) {
-        case PacketType_Ack:
-            if (fdbk.data.ack.val == AckVal_OK || ui->debugCheck->isChecked()) {
-                ui->log->append(QString("Ack: Cmd = %1, Res = %2")
-                                    .arg(hex(fdbk.data.ack.cmd))
-                                    .arg(hex(fdbk.data.ack.val)));
-            }
-            break;
-
-        case PacketType_ConnectionStat:
-            ui->log->append(QString("Connection status: %1").arg(hex(fdbk.data.connStatus)));
-            break;
-
-        case PacketType_DroneTlm:
-            if(ui->debugCheck->isChecked()){
-                const QByteArray tlmData = toData(fdbk.data.droneTlm);
-                ui->log->append("TLM [" + num2str(tlmData.size()) + "]: " + tlmData.toHex());
-            }
-            switch(fdbk.data.droneTlm.fdbkType){
-            case FdbkType_Photo:
-                sendAckPhoto(); // TODO: send ack only if necessary
-                break;
-            case FdbkType_Video:
-                sendAckVideo(); // TODO: send ack only if necessary
-                break;
-            }
-            break;
-
-        case PacketType_DroneVideo:
-            videoData.size = fdbk.data.videoPayloadSize;
-            break;
-
-        default:
-            ui->log->append("Unknown feedback type: " + hex(fdbk.type));
-            resetSerial();
-            break;
+        if(remaningVideoData > 0){
+            videoData.wIdx += r;
+        }else{
+            parseFeedback();
         }
     }
 }

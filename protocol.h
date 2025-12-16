@@ -175,6 +175,14 @@ struct VideoPayload {
     uint8_t data[MAX_VIDEO_DATA_SIZE];
 };
 
+struct VideoData {
+    int wIdx    = 0;
+    int size    = 0;
+    VideoPayload payload;
+    inline int remaningSize() const { return size - wIdx; }
+    inline char *writePtr() const { return (char *)(payload.data + wIdx); }
+};
+
 #pragma pack(pop)
 
 // BASE DRONE COMMANDS

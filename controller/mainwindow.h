@@ -45,6 +45,7 @@ private:
     void sendAckVideo();
 
     void initCurrentValues();
+    void parseFeedback();
 
     Ui::MainWindow *ui;
     QSerialPort serial;
@@ -52,10 +53,7 @@ private:
     QTimer timerFly;
     FlyControls flyControls;
     ClientPacket fdbk;
-    struct {
-        data_size_t size = 0;
-        VideoPayload payload;
-    } videoData;
+    VideoData videoData;
 };
 
 #endif // MAINWINDOW_H
