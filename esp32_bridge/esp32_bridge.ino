@@ -52,6 +52,10 @@ public:
     const int end = resp.indexOf(END_SUBSECTION, idx);
     sessionId = idx >= 0 ? resp.substring(idx + 8, end < 0 ? resp.length() : end) : "";
     sessionId.trim();
+    if (sessionId.length() == 0) {
+      close();
+      return false;
+    }
 
     lastKeepAlive = millis();
 
@@ -75,6 +79,7 @@ public:
   void close() {
     rtsp.stop();
     rtp.stop();
+    sessionId = "";
     lastKeepAlive = 0;
   }
 
