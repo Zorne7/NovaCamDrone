@@ -1,7 +1,3 @@
-/**
- * ESP32 WiFi-Serial Bridge for Drone Nova Cam
- */
-
 #include <WiFi.h>
 #include <WiFiUdp.h>
 #include <TFT_eSPI.h>
@@ -11,8 +7,6 @@
 // ===== CONFIG =====
 #define LOOP_DELAY                  1
 #define SERIAL_BAUD                 921600
-#define RTSP_VER                    "1.0"
-#define RTSP_USER_AGENT             "Lavf57.71.100"
 #define RTSP_END_PAR                "\r\n"
 #define RTSP_END_SECTION            RTSP_END_PAR RTSP_END_PAR
 #define RTSP_CLIENT_PORTS           STR(DRONE_RTP_PORT) "-" STR(DRONE_RTCP_PORT)
@@ -59,7 +53,7 @@ public:
 
       case StreamStatus_Enabled:
         resp = sendAndRead(reqSetup());
-        sessionId = isResponseOK(resp) ? getSession(resp) : "";
+        sessionId = isResponseOK(resp) ? getField(resp, "Session") : "";
         if(!sessionId.isEmpty()){
           resp = sendAndRead(reqPlay());
         }
@@ -114,19 +108,16 @@ private:
     return resp.startsWith("RTSP/" RTSP_VER " 200 OK");
   }
 
-  static inline String getSession(const String &resp) {
-    static const String SESSION_FIELD = "Session:";
-
-    const int idx = resp.indexOf(SESSION_FIELD);
+  static inline String getField(const String &resp, const String &field) {
+    const String fieldStr = field + ":";
+    const int idx = resp.indexOf(fieldStr);
     const int end = resp.indexOf(RTSP_END_PAR, idx);
-    String session = idx >= 0 ? resp.substring(idx + SESSION_FIELD.length(), end < 0 ? resp.length() : end) : "";
+    String session = idx >= 0 ? resp.substring(idx + fieldStr.length(), end < 0 ? resp.length() : end) : "";
     session.trim();
     return session;
   }
 
   String readResponse() {
-    static const String CONTENT_LEN_FIELD = "Content-Length:";
-
     String resp;
     if (!rtsp.connected()) {
       return resp;
@@ -144,14 +135,12 @@ private:
       }
     }
     // find Content-Length
-    int idx = resp.indexOf(CONTENT_LEN_FIELD);
-    if (!headerEnded || idx < 0) {
+    const int contentLen = getField(resp, "Content-Length").toInt();
+    if (!headerEnded || contentLen <= 0) {
       return resp;  // no header ended or no body
     }
-    const int end = resp.indexOf(RTSP_END_PAR, idx);
-    const int len = resp.substring(idx + 15, end).toInt();
     const int headerEndPos = resp.indexOf(RTSP_END_SECTION) + 4;
-    const int targetLen = headerEndPos + len;
+    const int targetLen = headerEndPos + contentLen;
     // read body
     while (resp.length() < targetLen && millis() - start < RTSP_RESPONSE_TIMEOUT_MS) {
       if (rtsp.available()) {

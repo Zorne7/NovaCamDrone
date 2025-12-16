@@ -27,6 +27,8 @@
 #define FLY_INTERVAL_MS         50
 #define TLM_SPORADIC_DATA_SIZE  15
 #define MAX_VIDEO_DATA_SIZE     1500
+#define RTSP_VER                "1.0"
+#define RTSP_USER_AGENT         "Lavf57.71.100"
 
 // TYPES
 typedef uint8_t fly_par_t;
