@@ -32,6 +32,7 @@
 typedef uint8_t fly_par_t;
 typedef char ssid_t[8];
 typedef uint16_t port_t;
+typedef uint16_t data_size_t;
 
 typedef uint8_t crc_t;
 static inline crc_t calculate_crc(const void *data, size_t len)
@@ -79,8 +80,9 @@ enum TlmFdbkType {
 
 typedef uint8_t ClientPacketType_t;
 enum ClientPacketType {
+    PacketType_Invalid,
     // Command
-    PacketType_SetConnection = 0x01,
+    PacketType_SetConnection,
     PacketType_GetConnection,
     PacketType_DroneCmd,
     PacketType_FlyCmd,
@@ -157,7 +159,7 @@ struct Ack {
 };
 
 struct ClientPacket {
-    ClientPacketType_t type;
+    ClientPacketType_t type = PacketType_Invalid;
     union Data {
         ConnParams connParams;
         DroneCmd droneCmd;
@@ -165,7 +167,7 @@ struct ClientPacket {
         Ack ack;
         ConnStatus_t connStatus;
         DroneTlm droneTlm;
-        uint16_t videoPayloadSize;
+        data_size_t videoPayloadSize;
     } data = Data{0};
 };
 
@@ -182,5 +184,16 @@ static constexpr DroneCmd DroneCmd_SWITCH_CAM_FRONT = {6, 1};
 static constexpr DroneCmd DroneCmd_SWITCH_CAM_BACK  = {6, 2};
 static constexpr DroneCmd DroneCmd_ACK_PHOTO        = {9, 1};
 static constexpr DroneCmd DroneCmd_ACK_VIDEO        = {9, 2};
+
+// COMMON FUNCTIONS
+template <typename T, typename F = T>
+static inline void set_flag(T &flags, F flag, bool en)
+{
+    if (en) {
+        flags |= (T)(flag);
+    } else {
+        flags &= (T)(~flag);
+    }
+}
 
 #endif // PROTOCOL_H

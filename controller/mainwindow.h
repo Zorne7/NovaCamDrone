@@ -46,12 +46,16 @@ private:
 
     void initCurrentValues();
 
+    Ui::MainWindow *ui;
+    QSerialPort serial;
     QTimer timerHb;
     QTimer timerFly;
     FlyControls flyControls;
-    VideoPayload videoPayload;
-    QSerialPort serial;
-    Ui::MainWindow *ui;
+    ClientPacket fdbk;
+    struct {
+        data_size_t size = 0;
+        VideoPayload payload;
+    } videoData;
 };
 
 #endif // MAINWINDOW_H

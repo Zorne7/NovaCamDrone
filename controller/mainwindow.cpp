@@ -7,6 +7,8 @@
 #include <QVBoxLayout>
 #include <QWidget>
 
+static const QList<int> BAUDRATES = {0, 9600, 19200, 38400, 57600, 115200, 921600};
+
 static inline void ms_sleep(int ms)
 {
     QEventLoop loop;
@@ -16,13 +18,10 @@ static inline void ms_sleep(int ms)
     loop.exec();
 }
 
-static inline void setFlag(uint8_t &flags, uint8_t flag, bool en)
+template <typename T>
+static inline const QByteArray toData(const T &s)
 {
-    if (en) {
-        flags |= flag;
-    } else {
-        flags &= ~flag;
-    }
+    return QByteArray(reinterpret_cast<const char *>(&s), sizeof(s));
 }
 
 template <typename T>
@@ -46,12 +45,10 @@ MainWindow::MainWindow(QWidget *parent)
     for (const QSerialPortInfo &info : QSerialPortInfo::availablePorts()) {
         ui->portSelector->addItem(info.portName());
     }
-
-    QList<int> baudRates = {0, 9600, 19200, 38400, 57600, 115200, 921600};
-    for (int rate : baudRates) {
+    for (int rate : BAUDRATES) {
         ui->baudSelector->addItem(num2str(rate), rate);
     }
-    ui->baudSelector->setCurrentText("0");
+    ui->baudSelector->setCurrentIndex(0);
 
     timerHb.setInterval(HB_INTERVAL_MS);
     timerHb.setSingleShot(false);
@@ -92,31 +89,31 @@ MainWindow::MainWindow(QWidget *parent)
         ui->turnLine->setText(num2str(flyControls.controlTurn));
     });
     connect(ui->fastFlyCheck, &QCheckBox::stateChanged, this, [=](int en) {
-        setFlag(flyControls.flags, ControlFlag_FastFly, en);
+        set_flag(flyControls.flags, ControlFlag_FastFly, en);
         ui->flagsLine->setText(hex(flyControls.flags));
     });
     connect(ui->fastDropCheck, &QCheckBox::stateChanged, this, [=](int en) {
-        setFlag(flyControls.flags, ControlFlag_FastDrop, en);
+        set_flag(flyControls.flags, ControlFlag_FastDrop, en);
         ui->flagsLine->setText(hex(flyControls.flags));
     });
     connect(ui->emergStopCheck, &QCheckBox::stateChanged, this, [=](int en) {
-        setFlag(flyControls.flags, ControlFlag_EmergencyStop, en);
+        set_flag(flyControls.flags, ControlFlag_EmergencyStop, en);
         ui->flagsLine->setText(hex(flyControls.flags));
     });
     connect(ui->circleTurnEndCheck, &QCheckBox::stateChanged, this, [=](int en) {
-        setFlag(flyControls.flags, ControlFlag_CircleTurnEnd, en);
+        set_flag(flyControls.flags, ControlFlag_CircleTurnEnd, en);
         ui->flagsLine->setText(hex(flyControls.flags));
     });
     connect(ui->noHeadCheck, &QCheckBox::stateChanged, this, [=](int en) {
-        setFlag(flyControls.flags, ControlFlag_NoHeadMode, en);
+        set_flag(flyControls.flags, ControlFlag_NoHeadMode, en);
         ui->flagsLine->setText(hex(flyControls.flags));
     });
     connect(ui->unlockCheck, &QCheckBox::stateChanged, this, [=](int en) {
-        setFlag(flyControls.flags, ControlFlag_Unlock, en);
+        set_flag(flyControls.flags, ControlFlag_Unlock, en);
         ui->flagsLine->setText(hex(flyControls.flags));
     });
     connect(ui->gyroCorrCheck, &QCheckBox::stateChanged, this, [=](int en) {
-        setFlag(flyControls.flags, ControlFlag_GyroCorrection, en);
+        set_flag(flyControls.flags, ControlFlag_GyroCorrection, en);
         ui->flagsLine->setText(hex(flyControls.flags));
     });
 
@@ -152,22 +149,27 @@ void MainWindow::openSerial()
     }
 }
 
+void MainWindow::resetSerial()
+{
+    serial.close();
+    serial.open(QIODevice::ReadWrite);
+}
+
 void MainWindow::sendCmd(const ClientPacket &cmd)
 {
     if (!serial.isOpen()) {
         ui->log->append("Open serial before send command");
         return;
     }
-    const QString cmdType = hex(cmd.type);
-    const QByteArray data(reinterpret_cast<const char *>(&cmd), sizeof(cmd));
+    const QByteArray data = toData(cmd);
     bool ok = serial.write(data) == data.size();
     if (ok) {
         serial.flush();
         if(ui->debugCheck->isChecked()){
-            ui->log->append("CMD " + cmdType + " [" + num2str(data.size()) + "]: " + data.toHex());
+            ui->log->append("CMD " + hex(cmd.type) + " [" + num2str(data.size()) + "]: " + data.toHex());
         }
     } else {
-        ui->log->append("Error sending cmd " + cmdType);
+        ui->log->append("Error sending cmd " + hex(cmd.type));
     }
 }
 
@@ -258,12 +260,6 @@ void MainWindow::sendSwitchCamBack()
     sendCmd(cmd);
 }
 
-void MainWindow::resetSerial()
-{
-    serial.close();
-    serial.open(QIODevice::ReadWrite);
-}
-
 void MainWindow::sendAckPhoto()
 {
     ClientPacket cmd;
@@ -297,33 +293,33 @@ void MainWindow::initCurrentValues()
 
 void MainWindow::readSerial()
 {
-    ClientPacket resp;
-
-    while (serial.bytesAvailable() >= sizeof(resp)) {
-        int r = serial.read(reinterpret_cast<char *>(&resp), sizeof(resp));
-        if(r < sizeof(resp)){
+    while (serial.bytesAvailable() >= sizeof(fdbk)) {
+        int r = serial.read(reinterpret_cast<char *>(&fdbk), sizeof(fdbk));
+        if(r < sizeof(fdbk)){
             ui->log->append("Error reading packet from serial");
             resetSerial();
             break;
         }
 
-        switch (resp.type) {
+        switch (fdbk.type) {
         case PacketType_Ack:
-            if (resp.data.ack.val == AckVal_OK || ui->debugCheck->isChecked()) {
-                ui->log->append(QString("Ack: Cmd = %1, Res = %2").arg(hex(resp.data.ack.cmd)).arg(hex(resp.data.ack.val)));
+            if (fdbk.data.ack.val == AckVal_OK || ui->debugCheck->isChecked()) {
+                ui->log->append(QString("Ack: Cmd = %1, Res = %2")
+                                    .arg(hex(fdbk.data.ack.cmd))
+                                    .arg(hex(fdbk.data.ack.val)));
             }
             break;
 
         case PacketType_ConnectionStat:
-            ui->log->append(QString("Connection status: %1").arg(hex(resp.data.connStatus)));
+            ui->log->append(QString("Connection status: %1").arg(hex(fdbk.data.connStatus)));
             break;
 
         case PacketType_DroneTlm:
             if(ui->debugCheck->isChecked()){
-                const QByteArray tlmData(reinterpret_cast<const char *>(&resp.data.droneTlm), sizeof(resp.data.droneTlm));
+                const QByteArray tlmData = toData(fdbk.data.droneTlm);
                 ui->log->append("TLM [" + num2str(tlmData.size()) + "]: " + tlmData.toHex());
             }
-            switch(resp.data.droneTlm.fdbkType){
+            switch(fdbk.data.droneTlm.fdbkType){
             case FdbkType_Photo:
                 sendAckPhoto(); // TODO: send ack only if necessary
                 break;
@@ -334,20 +330,11 @@ void MainWindow::readSerial()
             break;
 
         case PacketType_DroneVideo:
-            for(r = 0; r >= 0 && r < resp.data.videoPayloadSize; ) {
-                char *data = reinterpret_cast<char *>(&videoPayload) + r;
-                int size = serial.read(data, resp.data.videoPayloadSize - r);
-                r = size < 0 ? -1 : r + size;
-            }
-            if(r < 0){
-                ui->log->append("Error reading video payload from serial");
-            } else if(ui->debugCheck->isChecked()) {
-                ui->log->append("VIDEO [" + num2str(resp.data.videoPayloadSize) + "]");
-            }
+            videoData.size = fdbk.data.videoPayloadSize;
             break;
 
         default:
-            ui->log->append("Unknown response type: " + hex(resp.type));
+            ui->log->append("Unknown feedback type: " + hex(fdbk.type));
             resetSerial();
             break;
         }
