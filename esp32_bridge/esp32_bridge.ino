@@ -11,6 +11,7 @@
 // ===== CONFIG =====
 #define LOOP_DELAY  1
 #define SERIAL_BAUD 921600
+#define RTSP_RESPONSE_TIMEOUT_MS 1000
 #define RTSP_KEEPALIVE_INTERVAL_MS 5000
 
 // ===== TYPES =====
@@ -64,7 +65,7 @@ public:
   int pollRTP(VideoPayload *payload) {
     int packetSize = rtp.parsePacket();
     if (packetSize > 0) {
-      return rtp.read(payload->data, MIN(packetSize, sizeof(payload->data)));
+      return rtp.read((uint8_t *)payload, MIN(packetSize, sizeof(*payload)));
     }
     return 0;
   }
@@ -83,10 +84,11 @@ private:
     if(!rtsp.connected()){
       return "";
     }
-    String resp;
-    while (!rtsp.available()) {
-      delay(1);
+    unsigned long start = millis();
+    while (!rtsp.available() && millis() - start < RTSP_RESPONSE_TIMEOUT_MS) {
+        delay(1);
     }
+    String resp;
     while (rtsp.available()) {
       char c = rtsp.read();
       resp += c;
