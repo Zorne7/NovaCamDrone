@@ -8,6 +8,7 @@
 #include <QSerialPortInfo>
 #include <QTextEdit>
 #include <QTimer>
+#include <QUdpSocket>
 
 #include "../protocol.h"
 
@@ -54,6 +55,7 @@ private:
     FlyControls flyControls;
     ClientPacket fdbk;
     VideoData videoData;
+    QUdpSocket viewer;
 };
 
 #endif // MAINWINDOW_H

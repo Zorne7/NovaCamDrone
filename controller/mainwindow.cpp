@@ -19,9 +19,9 @@ static inline void ms_sleep(int ms)
 }
 
 template <typename T>
-static inline const QByteArray toData(const T &s)
+static inline const QByteArray toData(const T &s, int size = -1)
 {
-    return QByteArray(reinterpret_cast<const char *>(&s), sizeof(s));
+    return QByteArray(reinterpret_cast<const char *>(&s), size < 0 ? sizeof(s) : size);
 }
 
 template <typename T>
@@ -377,7 +377,9 @@ void MainWindow::readSerial()
         if(remaningVideoData > 0){
             videoData.wIdx += r;
             if(videoData.remaningSize() <= 0){
-                ui->log->append("VIDEO RECEIVED " + num2str(videoData.size));
+                const QByteArray video = toData(videoData.payload.data, videoData.size);
+                viewer.writeDatagram(video, size, QHostAddress("127.0.0.1"), 7777);
+                videoData = VideoData();
             }
         }else{
             parseFeedback();
