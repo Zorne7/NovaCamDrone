@@ -99,7 +99,7 @@ public:
 private:
   String readResponse() {
 
-    static const String END_RESP = "\r\n\r\n";
+    static const String END_SECTION = "\r\n\r\n";
 
     String resp;
 
@@ -107,12 +107,7 @@ private:
       return resp;
     }
 
-    unsigned long start = millis();
-
-    // wait 1 byte
-    while (!rtsp.available() && millis() - start < RTSP_RESPONSE_TIMEOUT_MS) {
-      delay(1);
-    }
+    const unsigned long start = millis();
 
     // read header
     bool headerEnded = false;
@@ -120,7 +115,7 @@ private:
       if (rtsp.available()) {
         char c = rtsp.read();
         resp += c;
-        headerEnded = resp.endsWith(END_RESP);
+        headerEnded = resp.endsWith(END_SECTION);
       } else {
         delay(1);
       }
@@ -139,7 +134,7 @@ private:
     int end = resp.indexOf("\r\n", idx);
     int len = resp.substring(idx + 15, end).toInt();
 
-    int headerEndPos = resp.indexOf(END_RESP) + 4;
+    int headerEndPos = resp.indexOf(END_SECTION) + 4;
     int targetLen = headerEndPos + len;
 
     // read body
@@ -150,6 +145,7 @@ private:
         delay(1);
       }
     }
+
     return resp;
   }
 
