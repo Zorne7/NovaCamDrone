@@ -49,7 +49,7 @@ public:
 
     // extract session
     const int idx = resp.indexOf("Session:");
-    const int end = resp.indexOf("\r\n", idx);
+    const int end = resp.indexOf(END_SUBSECTION, idx);
     sessionId = idx >= 0 ? resp.substring(idx + 8, end < 0 ? resp.length() : end) : "";
     sessionId.trim();
 
@@ -97,10 +97,10 @@ public:
   }
 
 private:
+  static const String END_SUBSECTION = "\r\n";
+  static const String END_SECTION = END_SUBSECTION + END_SUBSECTION;
+
   String readResponse() {
-
-    static const String END_SECTION = "\r\n\r\n";
-
     String resp;
 
     if (!rtsp.connected()) {
@@ -121,17 +121,13 @@ private:
       }
     }
 
-    if (!headerEnded) {
-      return resp;
-    }
-
     // find Content-Length
     int idx = resp.indexOf("Content-Length:");
-    if (idx < 0) {
-      return resp;  // no body
+    if (!headerEnded || idx < 0) {
+      return resp;  // no header ended or no body
     }
 
-    int end = resp.indexOf("\r\n", idx);
+    int end = resp.indexOf(END_SUBSECTION, idx);
     int len = resp.substring(idx + 15, end).toInt();
 
     int headerEndPos = resp.indexOf(END_SECTION) + 4;
@@ -159,51 +155,46 @@ private:
 
   bool sendOptions() {
     const String req =
-        "OPTIONS " DRONE_CAM " RTSP/1.0\r\n"
-        "CSeq: " + String(cseq++) + "\r\n"
-        "User-Agent: Lavf57.71.100\r\n"
-        "\r\n";
+        "OPTIONS " DRONE_CAM " RTSP/1.0" + END_SUBSECTION +
+        "CSeq: " + String(cseq++) + END_SUBSECTION +
+        "User-Agent: Lavf57.71.100" + END_SECTION;
     return sendRequest(req);
   }
 
   bool sendDescribe() {
     const String req =
-        "DESCRIBE " DRONE_CAM " RTSP/1.0\r\n"
-        "Accept: application/sdp\r\n"
-        "CSeq: " + String(cseq++) + "\r\n"
-        "User-Agent: Lavf57.71.100\r\n"
-        "\r\n";
+        "DESCRIBE " DRONE_CAM " RTSP/1.0" + END_SUBSECTION +
+        "Accept: application/sdp" + END_SUBSECTION +
+        "CSeq: " + String(cseq++) + END_SUBSECTION +
+        "User-Agent: Lavf57.71.100" + END_SECTION;
     return sendRequest(req);
   }
 
   bool sendSetup() {
     const String req =
-        "SETUP " DRONE_CAM "/track0 RTSP/1.0\r\n"
-        "Transport: RTP/AVP/UDP;unicast;client_port=" STR(DRONE_RTP_PORT) "-" STR(DRONE_RTCP_PORT) "\r\n"
-        "CSeq: " + String(cseq++) + "\r\n"
-        "User-Agent: Lavf57.71.100\r\n"
-        "\r\n";
+        "SETUP " DRONE_CAM "/track0 RTSP/1.0" + END_SUBSECTION +
+        "Transport: RTP/AVP/UDP;unicast;client_port=" STR(DRONE_RTP_PORT) "-" STR(DRONE_RTCP_PORT) + END_SUBSECTION +
+        "CSeq: " + String(cseq++) + END_SUBSECTION +
+        "User-Agent: Lavf57.71.100" + END_SECTION;
     return sendRequest(req);
   }
 
   bool sendPlay() {
     const String req =
-        "PLAY " DRONE_CAM "/ RTSP/1.0\r\n"
-        "Range: npt=0.000-\r\n"
-        "CSeq: " + String(cseq++) + "\r\n"
-        "User-Agent: Lavf57.71.100\r\n"
-        "Session: " + sessionId + "\r\n"
-        "\r\n";
+        "PLAY " DRONE_CAM "/ RTSP/1.0" + END_SUBSECTION +
+        "Range: npt=0.000-" + END_SUBSECTION +
+        "CSeq: " + String(cseq++) + END_SUBSECTION +
+        "User-Agent: Lavf57.71.100" + END_SUBSECTION +
+        "Session: " + sessionId + END_SECTION;
     return sendRequest(req);
   }
 
   bool sendStop() {
     const String req =
-        "TEARDOWN " DRONE_CAM " RTSP/1.0\r\n"
-        "CSeq: " + String(cseq++) + "\r\n"
-        "User-Agent: Lavf57.71.100\r\n"
-        "Session: " + sessionId + "\r\n"
-        "\r\n";
+        "TEARDOWN " DRONE_CAM " RTSP/1.0" + END_SUBSECTION +
+        "CSeq: " + String(cseq++) + END_SUBSECTION +
+        "User-Agent: Lavf57.71.100" + END_SUBSECTION +
+        "Session: " + sessionId + END_SECTION;
     return sendRequest(req);
   }
 
