@@ -76,48 +76,48 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->baudSelector, &QComboBox::currentTextChanged, this, &MainWindow::openSerial);
 
     connect(ui->leftRightSlider, &QSlider::valueChanged, this, [=](int val) {
-        flyParams.controlByte1 = val;
-        ui->control1Line->setText(num2str(flyParams.controlByte1));
+        flyControls.controlByte1 = val;
+        ui->control1Line->setText(num2str(flyControls.controlByte1));
     });
     connect(ui->frontBackSlider, &QSlider::valueChanged, this, [=](int val) {
-        flyParams.controlByte2 = val;
-        ui->control2Line->setText(num2str(flyParams.controlByte2));
+        flyControls.controlByte2 = val;
+        ui->control2Line->setText(num2str(flyControls.controlByte2));
     });
     connect(ui->accelSlider, &QSlider::valueChanged, this, [=](int val) {
-        flyParams.controlAccelerator = val;
-        ui->accellerLine->setText(num2str(flyParams.controlAccelerator));
+        flyControls.controlAccelerator = val;
+        ui->accellerLine->setText(num2str(flyControls.controlAccelerator));
     });
     connect(ui->turnSlider, &QSlider::valueChanged, this, [=](int val) {
-        flyParams.controlTurn = val;
-        ui->turnLine->setText(num2str(flyParams.controlTurn));
+        flyControls.controlTurn = val;
+        ui->turnLine->setText(num2str(flyControls.controlTurn));
     });
     connect(ui->fastFlyCheck, &QCheckBox::stateChanged, this, [=](int en) {
-        setFlag(flyParams.flags, FlagFastFly, en);
-        ui->flagsLine->setText(hex(flyParams.flags));
+        setFlag(flyControls.flags, ControlFlag_FastFly, en);
+        ui->flagsLine->setText(hex(flyControls.flags));
     });
     connect(ui->fastDropCheck, &QCheckBox::stateChanged, this, [=](int en) {
-        setFlag(flyParams.flags, FlagFastDrop, en);
-        ui->flagsLine->setText(hex(flyParams.flags));
+        setFlag(flyControls.flags, ControlFlag_FastDrop, en);
+        ui->flagsLine->setText(hex(flyControls.flags));
     });
     connect(ui->emergStopCheck, &QCheckBox::stateChanged, this, [=](int en) {
-        setFlag(flyParams.flags, FlagEmergencyStop, en);
-        ui->flagsLine->setText(hex(flyParams.flags));
+        setFlag(flyControls.flags, ControlFlag_EmergencyStop, en);
+        ui->flagsLine->setText(hex(flyControls.flags));
     });
     connect(ui->circleTurnEndCheck, &QCheckBox::stateChanged, this, [=](int en) {
-        setFlag(flyParams.flags, FlagCircleTurnEnd, en);
-        ui->flagsLine->setText(hex(flyParams.flags));
+        setFlag(flyControls.flags, ControlFlag_CircleTurnEnd, en);
+        ui->flagsLine->setText(hex(flyControls.flags));
     });
     connect(ui->noHeadCheck, &QCheckBox::stateChanged, this, [=](int en) {
-        setFlag(flyParams.flags, FlagNoHeadMode, en);
-        ui->flagsLine->setText(hex(flyParams.flags));
+        setFlag(flyControls.flags, ControlFlag_NoHeadMode, en);
+        ui->flagsLine->setText(hex(flyControls.flags));
     });
     connect(ui->unlockCheck, &QCheckBox::stateChanged, this, [=](int en) {
-        setFlag(flyParams.flags, FlagUnlock, en);
-        ui->flagsLine->setText(hex(flyParams.flags));
+        setFlag(flyControls.flags, ControlFlag_Unlock, en);
+        ui->flagsLine->setText(hex(flyControls.flags));
     });
     connect(ui->gyroCorrCheck, &QCheckBox::stateChanged, this, [=](int en) {
-        setFlag(flyParams.flags, FlagGyroCorrection, en);
-        ui->flagsLine->setText(hex(flyParams.flags));
+        setFlag(flyControls.flags, ControlFlag_GyroCorrection, en);
+        ui->flagsLine->setText(hex(flyControls.flags));
     });
 
     initCurrentValues();
@@ -225,7 +225,7 @@ void MainWindow::sendFlyCmd()
 {
     ClientPacket cmd;
     cmd.type = PacketType_FlyCmd;
-    cmd.data.flyCmd = FlyCmd(flyParams);
+    cmd.data.flyCmd = FlyCmd(flyControls);
     sendCmd(cmd);
 }
 
@@ -282,10 +282,10 @@ void MainWindow::sendAckVideo()
 
 void MainWindow::initCurrentValues()
 {
-    ui->leftRightSlider->setValue(FLY_PAR_NEUTRAL);
-    ui->frontBackSlider->setValue(FLY_PAR_NEUTRAL);
-    ui->accelSlider->setValue(FLY_PAR_NEUTRAL);
-    ui->turnSlider->setValue(FLY_PAR_NEUTRAL);
+    ui->leftRightSlider->setValue(FLY_CONTROL_NEUTRAL);
+    ui->frontBackSlider->setValue(FLY_CONTROL_NEUTRAL);
+    ui->accelSlider->setValue(FLY_CONTROL_NEUTRAL);
+    ui->turnSlider->setValue(FLY_CONTROL_NEUTRAL);
     ui->fastFlyCheck->setChecked(false);
     ui->fastDropCheck->setChecked(false);
     ui->emergStopCheck->setChecked(false);
@@ -309,13 +309,13 @@ void MainWindow::readSerial()
 
         switch (resp.type) {
         case PacketType_Ack:
-            if (resp.data.ack.res == 0 || ui->debugCheck->isChecked()) {
-                ui->log->append(QString("Ack: Cmd = %1, Res = %2").arg(hex(resp.data.ack.cmd)).arg(resp.data.ack.res));
+            if (resp.data.ack.val == AckVal_OK || ui->debugCheck->isChecked()) {
+                ui->log->append(QString("Ack: Cmd = %1, Res = %2").arg(hex(resp.data.ack.cmd)).arg(hex(resp.data.ack.val)));
             }
             break;
 
         case PacketType_ConnectionStat:
-            ui->log->append(QString("Connection: %1").arg(resp.data.connected));
+            ui->log->append(QString("Connection status: %1").arg(hex(resp.data.connStatus)));
             break;
 
         case PacketType_DroneTlm:
@@ -323,12 +323,12 @@ void MainWindow::readSerial()
                 const QByteArray tlmData(reinterpret_cast<const char *>(&resp.data.droneTlm), sizeof(resp.data.droneTlm));
                 ui->log->append("TLM [" + num2str(tlmData.size()) + "]: " + tlmData.toHex());
             }
-            switch(resp.data.droneTlm.numType){
-            case TlmType_Photo:
-                sendAckPhoto();
+            switch(resp.data.droneTlm.fdbkType){
+            case FdbkType_Photo:
+                sendAckPhoto(); // TODO: send ack only if necessary
                 break;
-            case TlmType_Video:
-                sendAckVideo();
+            case FdbkType_Video:
+                sendAckVideo(); // TODO: send ack only if necessary
                 break;
             }
             break;
