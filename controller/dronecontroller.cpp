@@ -12,6 +12,22 @@ static inline const QByteArray toData(const T &s, int size = -1)
     }
 }
 
+static inline int RTSP_FisrtPacketSize(const QByteArray &buff)
+{
+    const int headerEnd = buff.indexOf(RTSP_END_SECTION);
+    if (headerEnd < 0) {
+        return 0; // incomplete header
+    }
+    const QByteArray header = buff.left(headerEnd);
+    const int contentLen = QString::fromStdString(RTSP_GetField(header.toStdString(), "Content-Length")).toInt();
+    const int totSize = headerEnd + QByteArray(RTSP_END_SECTION).size() + (contentLen > 0 ? contentLen : 0);
+    return totSize;
+}
+
+static inline bool RTSP_PacketAvailable(const QByteArray &buff)
+{
+    return buff.size() >= RTSP_FisrtPacketSize(buff);
+}
 
 DroneController::DroneController(QObject *parent)
     : QObject{parent}
@@ -199,7 +215,7 @@ void DroneController::processData()
             break;
         case Channel_RTSP_TCP:
             rtspResponse.append(packetPayload);
-            if(rtspResponse.contains(RTSP_END_SECTION)){
+            if(RTSP_PacketAvailable(rtspResponse)){
                 emit rtspResponseRecv();
             }
             break;
@@ -262,7 +278,7 @@ void DroneController::readSerial()
 
 bool DroneController::waitRtspResponse(int timeout_ms)
 {
-    if(rtspResponse.contains(RTSP_END_SECTION)){
+    if(RTSP_PacketAvailable(rtspResponse)){
         return true;
     }
     QEventLoop loop;
@@ -276,11 +292,11 @@ bool DroneController::waitRtspResponse(int timeout_ms)
 
 const QByteArray DroneController::readRtspResponse()
 {
-    const int idx = rtspResponse.indexOf(RTSP_END_SECTION);
-    if(idx < 0){
-        return QByteArray();
+    const int firstPackSize = RTSP_FisrtPacketSize(rtspResponse);
+    if (rtspResponse.size() < firstPackSize) {
+        return QByteArray(); // incomplete response
     }
-    const QByteArray resp = rtspResponse.left(idx);
-    rtspResponse = rtspResponse.mid(idx + QByteArray(RTSP_END_SECTION).size());
-    return resp;
+    const QByteArray fullResp = rtspResponse.left(firstPackSize);
+    rtspResponse = rtspResponse.mid(firstPackSize); // remove response read
+    return fullResp;
 }
