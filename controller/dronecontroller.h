@@ -16,6 +16,7 @@ public:
 
     FlyControls* getFlyControls() { return &flyControls; }
     bool setSerial(const QString &portName, int baudRate);
+    bool setVideo(bool enabled);
 
 public slots:
     void resetSerial();
@@ -24,7 +25,6 @@ public slots:
     void sendGetConnection();
     void setHeartbeat();
     void setFlyCmd();
-    void setVideo();
     void sendStopControl();
     void sendSwitchCamFront();
     void sendSwitchCamBack();
@@ -37,10 +37,13 @@ signals:
     void ackRecv(Ack ack);
     void connStatusRecv(ProtocolChannel_t status);
     void errorOccurred(const QString &err);
+    void rtspResponseRecv();
 
 private:
     bool sendCmd(const BridgePacketId &id, const QByteArray &data = QByteArray());
     void readSerial();
+    bool waitRtspResponse(int timeout_ms);
+    const QByteArray readRtspResponse();
     void parseDroneTlm(const DroneTlm *tlm);
     void processData();
 
@@ -50,6 +53,9 @@ private:
     FlyControls flyControls;
     BridgePacketHeader lastHeader;
     QMap<ProtocolChannel_t, QByteArray> channelBuffMap;
+    int cseq = 1;
+    QByteArray sessionId;
+    QByteArray rtspResponse;
     QByteArray currentFrame;
 };
 

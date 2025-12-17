@@ -36,6 +36,7 @@ using namespace std;
 #define HB_INTERVAL_MS              1000
 #define FLY_INTERVAL_MS             50
 #define RTSP_KEEPALIVE_INTERVAL_MS  5000
+#define RTSP_RESP_TIMEOUT_MS        1000
 
 // TYPES
 typedef uint8_t fly_par_t;

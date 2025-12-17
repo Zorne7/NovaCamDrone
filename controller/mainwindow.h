@@ -27,6 +27,7 @@ private slots:
     void setSerial();
     void initCurrentValues();
     void sendSetConnection();
+    void setVideo();
 
 private:
     Ui::MainWindow *ui;

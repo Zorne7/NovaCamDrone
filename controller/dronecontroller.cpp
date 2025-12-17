@@ -2,19 +2,14 @@
 
 #include <QEventLoop>
 
-static inline void ms_sleep(int ms)
-{
-    QEventLoop loop;
-    QTimer timer;
-    QObject::connect(&timer, &QTimer::timeout, &loop, &QEventLoop::quit);
-    timer.start(ms);
-    loop.exec();
-}
-
 template <typename T>
 static inline const QByteArray toData(const T &s, int size = -1)
 {
-    return QByteArray(reinterpret_cast<const char *>(&s), size < 0 ? sizeof(s) : size);
+    if constexpr (std::is_same_v<T, string>) {
+        return QByteArray::fromStdString(s);
+    } else {
+        return QByteArray(reinterpret_cast<const char *>(&s), size < 0 ? sizeof(s) : size);
+    }
 }
 
 
@@ -110,21 +105,32 @@ void DroneController::sendFlyCmd()
     sendCmd(BridgePacketId(PacketType_Forward, Channel_Ctrl_UDP), toData(FlyCmd(flyControls)));
 }
 
-void DroneController::setVideo()
+bool DroneController::setVideo(bool enabled)
 {
-    // ClientPacket cmd;
-    // cmd.type = PacketType_SetStream;
-    // cmd.data.streamStatusReq = ui->btnVideo->isChecked() ? StreamStatus_Enabled : StreamStatus_Disabled;
-    // bool ok = sendCmd(cmd);
-    // if(!ok){
-    //     ui->btnVideo->setChecked(!ui->btnVideo->isChecked());
-    //     return;
-    // }
-    // if(cmd.data.streamStatusReq == StreamStatus_Enabled){
-    //     ui->log->append("Video enabled");
-    // }else{
-    //     ui->log->append("Video disabled");
-    // }
+    bool ok;
+
+    if (enabled) {
+        ok =
+            sendCmd(BridgePacketId(PacketType_Forward, Channel_RTSP_TCP), toData(RTSP_Options(cseq)))
+            && waitRtspResponse(RTSP_RESP_TIMEOUT_MS) && RTSP_RespOk(readRtspResponse().toStdString())
+            && sendCmd(BridgePacketId(PacketType_Forward, Channel_RTSP_TCP), toData(RTSP_Describe(cseq)))
+            && waitRtspResponse(RTSP_RESP_TIMEOUT_MS) && RTSP_RespOk(readRtspResponse().toStdString())
+            && sendCmd(BridgePacketId(PacketType_Forward, Channel_RTSP_TCP), toData(RTSP_Setup(cseq)))
+            && waitRtspResponse(RTSP_RESP_TIMEOUT_MS);
+        if(ok){
+            const string resp = readRtspResponse().toStdString();
+            sessionId = RTSP_RespOk(resp) ? toData(RTSP_GetField(resp, "Session")).trimmed() : "";
+            ok = !sessionId.isEmpty()
+                 && sendCmd(BridgePacketId(PacketType_Forward, Channel_RTSP_TCP), toData(RTSP_Play(cseq, sessionId.toStdString())))
+                 && waitRtspResponse(RTSP_RESP_TIMEOUT_MS) && RTSP_RespOk(readRtspResponse().toStdString());
+        }
+    } else {
+        ok =
+            sendCmd(BridgePacketId(PacketType_Forward, Channel_RTSP_TCP), toData(RTSP_Stop(cseq, sessionId.toStdString())))
+            && waitRtspResponse(RTSP_RESP_TIMEOUT_MS) && RTSP_RespOk(readRtspResponse().toStdString());
+    }
+
+    return ok;
 }
 
 void DroneController::sendStopControl()
@@ -192,7 +198,10 @@ void DroneController::processData()
             parseDroneTlm(reinterpret_cast<const DroneTlm *>(packetPayload.data()));
             break;
         case Channel_RTSP_TCP:
-            // TODO: add parsing of rtsp packets
+            rtspResponse.append(packetPayload);
+            if(rtspResponse.contains(RTSP_END_SECTION)){
+                emit rtspResponseRecv();
+            }
             break;
         case Channel_RTP_UDP:
             currentFrame.push_back(packetPayload);
@@ -249,4 +258,29 @@ void DroneController::readSerial()
             processData();
         }
     }
+}
+
+bool DroneController::waitRtspResponse(int timeout_ms)
+{
+    if(rtspResponse.contains(RTSP_END_SECTION)){
+        return true;
+    }
+    QEventLoop loop;
+    QTimer timer;
+    QObject::connect(&timer, &QTimer::timeout, &loop, &QEventLoop::quit);
+    QObject::connect(this, &DroneController::rtspResponseRecv, &loop, &QEventLoop::quit);
+    timer.start(timeout_ms);
+    loop.exec();
+    return timer.isActive();
+}
+
+const QByteArray DroneController::readRtspResponse()
+{
+    const int idx = rtspResponse.indexOf(RTSP_END_SECTION);
+    if(idx < 0){
+        return QByteArray();
+    }
+    const QByteArray resp = rtspResponse.left(idx);
+    rtspResponse = rtspResponse.mid(idx + QByteArray(RTSP_END_SECTION).size());
+    return resp;
 }

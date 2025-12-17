@@ -25,7 +25,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->btnGetConn, &QPushButton::clicked, &droneCtrl, &DroneController::sendGetConnection);
     connect(ui->btnHeartbeat, &QPushButton::clicked, &droneCtrl, &DroneController::setHeartbeat);
     connect(ui->btnFly, &QPushButton::clicked, &droneCtrl, &DroneController::setFlyCmd);
-    connect(ui->btnVideo, &QPushButton::clicked, &droneCtrl, &DroneController::setVideo);
+    connect(ui->btnVideo, &QPushButton::clicked, this, &MainWindow::setVideo);
     connect(ui->btnStop, &QPushButton::clicked, &droneCtrl, &DroneController::sendStopControl);
     connect(ui->btnCamFront, &QPushButton::clicked, &droneCtrl, &DroneController::sendSwitchCamFront);
     connect(ui->btnCamBack, &QPushButton::clicked, &droneCtrl, &DroneController::sendSwitchCamBack);
@@ -139,4 +139,18 @@ void MainWindow::sendSetConnection()
     strncpy(connParams.ssid, ui->ssidEdit->text().toStdString().c_str(), sizeof(connParams.ssid));
     connParams.timeout = ui->connTimeoutEdit->text().toUInt();
     droneCtrl.sendSetConnection(connParams);
+}
+
+void MainWindow::setVideo()
+{
+    bool ok = droneCtrl.setVideo(ui->btnVideo->isChecked());
+    if(!ok){
+        ui->btnVideo->setChecked(!ui->btnVideo->isChecked());
+        return;
+    }
+    if(ui->btnVideo->isChecked()){
+        ui->log->append("Video enabled");
+    }else{
+        ui->log->append("Video disabled");
+    }
 }
