@@ -116,12 +116,14 @@ void MainWindow::setSerial()
     const bool ok = droneCtrl.setSerial(portName, baudRate);
     if (ok && baudRate == 0) {
         ui->log->append("Serial closed");
+        ui->btnRefresh->setEnabled(true);
         return;
     }
     if (!ok) {
         ui->log->append("Error setting serial " + portName);
     } else {
         ui->log->append(QString("Serial %1 opened with baudrate %2").arg(portName).arg(baudRate));
+        ui->btnRefresh->setEnabled(false);
     }
 }
 
@@ -137,13 +139,14 @@ void MainWindow::initCurrentValues()
     ui->circleTurnEndCheck->setChecked(false);
     ui->noHeadCheck->setChecked(false);
     ui->unlockCheck->setChecked(false);
+    ui->unknownCheck->setChecked(false);
     ui->gyroCorrCheck->setChecked(false);
 }
 
 void MainWindow::sendSetConnection()
 {
     ConnParams connParams{};
-    strncpy(connParams.ssid, ui->ssidEdit->text().toStdString().c_str(), sizeof(connParams.ssid));
+    strncpy(connParams.ssid, ui->ssidEdit->text().toUtf8().data(), sizeof(connParams.ssid));
     connParams.timeout = ui->connTimeoutEdit->text().toUInt();
     droneCtrl.sendSetConnection(connParams);
 }
@@ -153,11 +156,5 @@ void MainWindow::setVideo()
     bool ok = droneCtrl.setVideo(ui->btnVideo->isChecked());
     if(!ok){
         ui->btnVideo->setChecked(!ui->btnVideo->isChecked());
-        return;
-    }
-    if(ui->btnVideo->isChecked()){
-        ui->log->append("Video enabled");
-    }else{
-        ui->log->append("Video disabled");
     }
 }
