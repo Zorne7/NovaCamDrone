@@ -5,206 +5,44 @@
 #include "../protocol.h"
 
 // ===== CONFIG =====
-#define LOOP_DELAY                  1
-#define SERIAL_BAUD                 921600
-#define RTSP_END_PAR                "\r\n"
-#define RTSP_END_SECTION            RTSP_END_PAR RTSP_END_PAR
-#define RTSP_CLIENT_PORTS           STR(DRONE_RTP_PORT) "-" STR(DRONE_RTCP_PORT)
-#define RTSP_RESPONSE_TIMEOUT_MS    1000
-#define RTSP_KEEPALIVE_INTERVAL_MS  5000
+#define LOOP_DELAY  1
+#define SERIAL_BAUD 921600
 
 // ===== TYPES =====
-class RTSP {
-public:
+typedef std::vector<uint8_t> ByteArray;
 
-  bool init() {
-    if(!rtsp.connect(DRONE_IP, DRONE_VIDEO_PORT)){
-      return false;
-    }
-
-    String resp = sendAndRead(reqOptions());
-    if(!isResponseOK(resp)){
-      close();
-      return false;
-    }
-
-    resp = sendAndRead(reqDescribe());
-    if(!isResponseOK(resp)){
-      close();
-      return false;
-    }
-
-    lastKeepAlive = millis();
-
-    rtp.begin(DRONE_RTP_PORT);
-
-    return true;
-  }
-
-  bool isConnected() { return rtsp.connected(); }
-
-  StreamStatus_t streamStatus() { return sessionId.isEmpty() ? StreamStatus_Disabled : StreamStatus_Enabled; }
-
-  bool setStreamStatus(StreamStatus_t status) {
-    String resp;
-    bool ok = false;
-
-    switch (status){
-
-      case StreamStatus_Enabled:
-        resp = sendAndRead(reqSetup());
-        sessionId = isResponseOK(resp) ? getField(resp, "Session") : "";
-        if(!sessionId.isEmpty()){
-          resp = sendAndRead(reqPlay());
-        }
-        ok = !sessionId.isEmpty() && isResponseOK(resp);
-        break;
-
-      case StreamStatus_Disabled:
-        resp = sendAndRead(reqStop());
-        ok = isResponseOK(resp);
-        if(ok){
-          sessionId = "";
-        }
-        break;
-
-      default:
-        break;
-    }
-
-    if(ok){
-      lastKeepAlive = millis();
-    }
-    return ok;
-  }
-
-  void close() {
-    rtsp.stop();
-    rtp.stop();
-    sessionId = "";
-    lastKeepAlive = 0;
-  }
-
-  int pollRTP(VideoPayload *payload) {
-    int packetSize = rtp.parsePacket();
-    if (packetSize > 0) {
-      return rtp.read((uint8_t *)payload, MIN(packetSize, sizeof(*payload)));
-    }
-    return 0;
-  }
-  
-  bool sendKeepalive() {
-    bool ok = false;
-    if (rtsp.connected() && millis() - lastKeepAlive > RTSP_KEEPALIVE_INTERVAL_MS) {
-      ok = sendRequest(reqOptions()); // keepalive
-      lastKeepAlive = millis();
-      readResponse(); // discard response
-    }
-    return ok;
-  }
-
-private:
-  static inline bool isResponseOK(const String &resp) {
-    return resp.startsWith("RTSP/" RTSP_VER " 200 OK");
-  }
-
-  static inline String getField(const String &resp, const String &field) {
-    const String fieldStr = field + ":";
-    const int idx = resp.indexOf(fieldStr);
-    const int end = resp.indexOf(RTSP_END_PAR, idx);
-    String session = idx >= 0 ? resp.substring(idx + fieldStr.length(), end < 0 ? resp.length() : end) : "";
-    session.trim();
-    return session;
-  }
-
-  String readResponse() {
-    String resp;
-    if (!rtsp.connected()) {
-      return resp;
-    }
-    const unsigned long start = millis();
-    // read header
-    bool headerEnded = false;
-    while (!headerEnded && millis() - start < RTSP_RESPONSE_TIMEOUT_MS) {
-      if (rtsp.available()) {
-        char c = rtsp.read();
-        resp += c;
-        headerEnded = resp.endsWith(RTSP_END_SECTION);
-      } else {
-        delay(1);
-      }
-    }
-    // find Content-Length
-    const int contentLen = getField(resp, "Content-Length").toInt();
-    if (!headerEnded || contentLen <= 0) {
-      return resp;  // no header ended or no body
-    }
-    const int headerEndPos = resp.indexOf(RTSP_END_SECTION) + 4;
-    const int targetLen = headerEndPos + contentLen;
-    // read body
-    while (resp.length() < targetLen && millis() - start < RTSP_RESPONSE_TIMEOUT_MS) {
-      if (rtsp.available()) {
-        resp += (char)rtsp.read();
-      } else {
-        delay(1);
-      }
-    }
-    return resp;
-  }
-
-  bool sendRequest(const String &req) {
-    return rtsp.print(req) > 0;
-  }
-
-  String sendAndRead(const String &req) {
-    return sendRequest(req) ? readResponse() : "";
-  }
-
-  String reqOptions() {
-    return  "OPTIONS " DRONE_CAM " RTSP/" RTSP_VER RTSP_END_PAR
-            "CSeq: " + String(cseq++) + RTSP_END_PAR
-            "User-Agent: " RTSP_USER_AGENT RTSP_END_SECTION;
-  }
-
-  String reqDescribe() {
-    return  "DESCRIBE " DRONE_CAM " RTSP/" RTSP_VER RTSP_END_PAR
-            "Accept: application/sdp" RTSP_END_PAR
-            "CSeq: " + String(cseq++) + RTSP_END_PAR
-            "User-Agent: " RTSP_USER_AGENT RTSP_END_SECTION;
-  }
-
-  String reqSetup() {
-    return  "SETUP " DRONE_CAM "/track0 RTSP/" RTSP_VER RTSP_END_PAR
-            "Transport: RTP/AVP/UDP;unicast;client_port=" RTSP_CLIENT_PORTS RTSP_END_PAR
-            "CSeq: " + String(cseq++) + RTSP_END_PAR
-            "User-Agent: " RTSP_USER_AGENT RTSP_END_SECTION;
-  }
-
-  String reqPlay() {
-    return  "PLAY " DRONE_CAM "/ RTSP/" RTSP_VER RTSP_END_PAR
-            "Range: npt=0.000-" RTSP_END_PAR
-            "CSeq: " + String(cseq++) + RTSP_END_PAR
-            "User-Agent: " RTSP_USER_AGENT RTSP_END_PAR
-            "Session: " + sessionId + RTSP_END_SECTION;
-  }
-
-  String reqStop() {
-    return  "TEARDOWN " DRONE_CAM " RTSP/" RTSP_VER RTSP_END_PAR
-            "CSeq: " + String(cseq++) + RTSP_END_PAR
-            "User-Agent: " RTSP_USER_AGENT RTSP_END_PAR
-            "Session: " + sessionId + RTSP_END_SECTION;
-  }
-
-  WiFiClient rtsp;
-  WiFiUDP rtp;
-  unsigned long lastKeepAlive = 0;
-  int cseq                    = 1;
-  String sessionId            = "";
+struct BridgePacket {
+  BridgePacketHeader header;
+  ByteArray payload;
 };
+
+static inline ByteArray UDP_read(WiFiUDP &udp)
+{
+  const int packetSize = udp.parsePacket();
+  ByteArray bytes(packetSize, 0);
+  const int r = udp.read(bytes.data(), packetSize);
+  if(r != packetSize){
+    bytes.resize(MAX(r, 0));
+  }
+  return bytes;
+}
+
+static inline ByteArray TCP_read(WiFiClient &tcp)
+{
+  const int dataSize = tcp.available();
+  ByteArray bytes(dataSize, 0);
+  const int r = tcp.read(bytes.data(), dataSize);
+  if(r != dataSize){
+    bytes.resize(MAX(r, 0));
+  }
+  return bytes;
+}
 
 class Bridge {
 public:
-  void init() {
+
+  void init()
+  {
     Serial.begin(SERIAL_BAUD);
     WiFi.mode(WIFI_STA);
     WiFi.setAutoReconnect(false);
@@ -219,165 +57,173 @@ public:
     tft.print(SERIAL_BAUD);
   }
 
+  uint16_t connectionTimeout() const { return connParams.timeout; }
   bool isConnected() const { return WiFi.status() == WL_CONNECTED; }
 
-  ConnStatus_t connectionStatus() { 
-    return !isConnected() ? Disconnected : (!rtsp.isConnected() ? ConnectedControl : Connected);
-  }
-
-  void disconnectFromDrone() {
-    rtsp.close();
-    udp.stop();
+  void disconnectFromDrone()
+  {    
+    rtsp.stop();
+    rtp.stop();
+    ctrl.stop();
     WiFi.disconnect(true);
   }
 
-  bool connectToDrone() {
-    static const int maxAttempts = 10;
+  bool connectToDrone()
+  {
     if(!connParams.valid()){
       return false;
     }
-    char wifiSsid[32];
+    char wifiSsid[sizeof(DRONE_WIFI_PREFIX) + sizeof(connParams.ssid) + 1];
     snprintf(wifiSsid, sizeof(wifiSsid), "%s%s", DRONE_WIFI_PREFIX, connParams.ssid);
     WiFi.begin(wifiSsid, DRONE_PASSW);
-    for (int attempts = 0; !isConnected() && attempts < maxAttempts; attempts++) {
-      delay(connParams.timeout / maxAttempts);
-    }
-    if(!isConnected()){
-      return false;
-    }
-    udp.begin(DRONE_RECV_PORT);
-    rtsp.init();
     return true;
   }
 
-  void parseClientCmd() {
-    if (!readFromClient(&clientCmd)) {
+  void start()
+  {    
+    ctrl.begin(DRONE_CTRL_PORT);
+    rtsp.connect(DRONE_IP, DRONE_VIDEO_PORT);
+    rtp.begin(DRONE_RTP_PORT);
+  }
+
+  void parseClientCmd()
+  {
+    if (!readFromClient(&clientPkt)) {
 	    // No cmd received
       return;
     }
 
     bool ok = false;
-    switch (clientCmd.type){
 
-      case PacketType_SetConnection:
-        disconnectFromDrone();
-        connParams = clientCmd.data.connParams;
-        ok = true;
-        break;
+    if(clientPkt.header.dataSize == bridgePkt.payload.size()) {
 
-      case PacketType_GetConnection:
-        clientFdbk.type = PacketType_ConnectionStat;
-        clientFdbk.data.connStatus = connectionStatus();
-        sendToClient(clientFdbk);
-        return; // return to not send ack
+      switch (clientPkt.header.id.type()){
 
-      case PacketType_GetStream:
-        clientFdbk.type = PacketType_StreamStat;
-        clientFdbk.data.streamStatus = rtsp.streamStatus();
-        sendToClient(clientFdbk);
-        return; // return to not send ack
+        case PacketType_SetConnection:
+          if(clientPkt.header.dataSize != sizeof(ConnParams)){
+            break;
+          }
+          disconnectFromDrone();
+          connParams = *(ConnParams *)bridgePkt.payload.data();
+          ok = true;
+          break;
 
-      case PacketType_SetStream: 
-        ok = rtsp.setStreamStatus(clientCmd.data.streamStatusReq);
-        break;
+        case PacketType_GetConnection:
+          bridgePkt.payload.resize(1);
+          bridgePkt.payload[0] = isConnected();
+          bridgePkt.header = BridgePacketHeader(BridgePacketId(PacketType_ConnectionStat), bridgePkt.payload.size());
+          sendToClient(bridgePkt);
+          return; // return to not send ack
 
-      case PacketType_DroneCmd: 
-        ok = sendToDrone((const uint8_t *)&clientCmd.data.droneCmd, sizeof(clientCmd.data.droneCmd));
-        break;
+        case PacketType_Forward:
+          switch (clientPkt.header.id.chan()) {
+            case Channel_Ctrl_UDP:              
+              ctrl.beginPacket(DRONE_IP, DRONE_CTRL_PORT);
+              ok = ctrl.write(bridgePkt.payload.data(), bridgePkt.payload.size()) == bridgePkt.payload.size();
+              ctrl.endPacket();
+              break;
+            case Channel_RTSP_TCP:
+              ok = rtsp.write(bridgePkt.payload.data(), bridgePkt.payload.size()) == bridgePkt.payload.size();
+              break;
+            default:
+              break;
+          }
+          break;
 
-      case PacketType_FlyCmd: 
-        ok = sendToDrone((const uint8_t *)&clientCmd.data.flyCmd, sizeof(clientCmd.data.flyCmd));
-        break;
-
-      default:
-        break;
-    }
-
-    clientFdbk.type = PacketType_Ack;
-    clientFdbk.data.ack.cmd = clientCmd.type;
-    clientFdbk.data.ack.val = ok;
-	  sendToClient(clientFdbk);
-  }
-
-  void forwardDroneTlm() {
-    static const int MIN_DRONE_TLM_SIZE = sizeof(DroneTlm) - sizeof(DroneTlm::sporadicData);
-    int packetSize = udp.parsePacket();
-    while (packetSize >= MIN_DRONE_TLM_SIZE) {
-      const int len = udp.read((uint8_t *)&clientFdbk.data.droneTlm, MIN(packetSize, sizeof(DroneTlm)));
-      if(len > 0){
-        clientFdbk.type = PacketType_DroneTlm;
-        sendToClient(clientFdbk);
-        packetSize = udp.parsePacket();
+        default:
+          break;
       }
     }
+
+    bridgePkt.payload.resize(sizeof(Ack));
+    Ack *ack = (Ack *)bridgePkt.payload.data();
+    ack->cmd = clientPkt.header.id;
+    ack->val = ok ? AckVal_OK : AckVal_KO;
+    bridgePkt.header = BridgePacketHeader(BridgePacketId(PacketType_Ack), bridgePkt.payload.size());
+    sendToClient(bridgePkt);
   }
 
-  void forwardDroneVideo() {
-    rtsp.sendKeepalive();
-    clientFdbk.type = PacketType_DroneStream;
-    int videoPayloadSize = rtsp.pollRTP(&videoPayload);
-    while(videoPayloadSize > 0) {
-      clientFdbk.data.videoPayloadSize = videoPayloadSize;
-      sendToClient(clientFdbk);
-      sendToClient(videoPayload, videoPayloadSize);
-      videoPayloadSize = rtsp.pollRTP(&videoPayload);
-    }
-  }
+  void forwardDroneTlm() { forwardToClient(Channel_Ctrl_UDP, UDP_read(ctrl)); }
+  void forwardDroneResp() { forwardToClient(Channel_RTSP_TCP, TCP_read(rtsp)); }
+  void forwardDroneVideo() { forwardToClient(Channel_RTP_UDP, UDP_read(rtp)); }
 
-private:
-  bool sendToDrone(const uint8_t *data, size_t length) {
-    if(!isConnected()){
-      return false;
-    }
-    udp.beginPacket(DRONE_IP, DRONE_SEND_PORT);
-    udp.write(data, length);
-    udp.endPacket();
-    return true;
-  }
-  
-  template <typename T>
-  void sendToClient(const T &packet, int size = -1) {
-    Serial.write((const uint8_t *)&packet, size < 0 ? sizeof(packet) : size);
+private:  
+  void sendToClient(const BridgePacket &pkt)
+  {
+    Serial.write((const uint8_t *)&pkt.header, sizeof(pkt.header));
+    Serial.write(pkt.payload.data(), pkt.payload.size());
     Serial.flush();
   }
-  
-  bool readFromClient(ClientPacket *cmd) {
-    if(Serial.available() < sizeof(*cmd)){
-      return 0;
+
+  void forwardToClient(ProtocolChannel chan, const ByteArray &packet) {
+    if(packet.empty()){
+      return;
     }
-    return Serial.readBytes((uint8_t *)cmd, sizeof(*cmd)) == sizeof(*cmd);
+    bridgePkt.header = BridgePacketHeader(BridgePacketId(PacketType_Forward, chan), packet.size());
+    bridgePkt.payload = packet;
+    sendToClient(bridgePkt);
+  }
+  
+  bool readFromClient(BridgePacket *pkt)
+  {
+    if(Serial.available() < sizeof(pkt->header)){
+      return false;
+    }
+    bool ok = Serial.readBytes((uint8_t *)&pkt->header, sizeof(pkt->header)) == sizeof(pkt->header);
+    if(ok){
+      pkt->payload.resize(pkt->header.dataSize);
+      ok = Serial.readBytes(pkt->payload.data(), pkt->header.dataSize) == pkt->header.dataSize;
+    }
+    return ok;
   }
 
-  WiFiUDP udp;
-  RTSP rtsp;
+  WiFiUDP ctrl;
+  WiFiClient rtsp;
+  WiFiUDP rtp;
+
   TFT_eSPI tft = TFT_eSPI();
   ConnParams connParams;
-  ClientPacket clientCmd;
-  ClientPacket clientFdbk;
-  VideoPayload videoPayload;
+  BridgePacket clientPkt;
+  BridgePacket bridgePkt;
 };
 
 // ===== GLOBAL VARIABLES =====
 Bridge bridge;
+bool connecting;
+unsigned long lastTryConnection;
 
 // ===== SETUP =====
-void setup() {  
+void setup()
+{  
   bridge.init();
+  connecting = false;
+  lastTryConnection = 0;
 }
 
 // ===== MAIN LOOP =====
-void loop() {
-
-  bool connected = bridge.isConnected();
-  if(!connected){
-    connected = bridge.connectToDrone();
+void loop() 
+{
+  if (!bridge.isConnected()) {
+    const unsigned long now = millis();
+    if (now - lastTryConnection >= bridge.connectionTimeout()) {
+      connecting = bridge.connectToDrone();
+      lastTryConnection = now;
+    }
+  } else {
+    if (connecting) {
+      bridge.start();
+      connecting = false;
+      lastTryConnection = 0;
+    }
   }
 
   bridge.parseClientCmd();
   bridge.forwardDroneTlm();
+  bridge.forwardDroneResp();
   bridge.forwardDroneVideo();
 
-  if(LOOP_DELAY > 0){
+  if (LOOP_DELAY > 0) {
     delay(LOOP_DELAY);
   }
 }
+

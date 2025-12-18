@@ -25,7 +25,6 @@ using namespace std;
 // PROTOCOL CONFIG
 #define FLY_CONTROL_NEUTRAL 128
 #define DEF_FLY_TURN_DEAD_ZONE 24
-#define TLM_SPORADIC_DATA_SIZE 15
 #define RTSP_VER "1.0"
 #define RTSP_USER_AGENT "Lavf57.71.100"
 #define RTSP_END_PAR "\r\n"
@@ -43,7 +42,6 @@ typedef uint8_t fly_par_t;
 typedef char ssid_t[8];
 typedef uint16_t port_t;
 typedef uint8_t crc_t;
-static crc_t CRC_Calculate(const void *data, size_t len);
 
 struct RTSP
 {
@@ -193,13 +191,23 @@ struct FlyCmd
         : flyControls(controls)
     {
         flyControls.normalize();
-        crc = CRC_Calculate(&flyControls, sizeof(flyControls));
+        crc = calculate_crc(&flyControls, sizeof(flyControls));
     }
     uint8_t header = 0x03;
     uint8_t start = 0x66;
     FlyControls flyControls = FlyControls();
-    crc_t crc = 0x00; // use CRC_Calculate on flyControls
+    crc_t crc = 0x00; // use calculate_crc on flyControls
     uint8_t end = 0x99;
+
+    static inline crc_t calculate_crc(const void *data, size_t len)
+    {
+        const uint8_t *bytes = (const uint8_t *) data;
+        crc_t crc = bytes[0];
+        for (int i = 1; i < len; i++) {
+            crc ^= bytes[i];
+        }
+        return crc;
+    }
 };
 
 struct DroneCmd
@@ -217,7 +225,6 @@ struct DroneTlm
     TlmFdbkType_t fdbkType;
     uint8_t numPhoto;
     uint8_t numVideo;
-    uint8_t sporadicData[TLM_SPORADIC_DATA_SIZE];
 };
 
 typedef uint8_t ProtocolChannel_t;
@@ -287,16 +294,6 @@ static constexpr DroneCmd DroneCmd_ACK_PHOTO = {9, 1};
 static constexpr DroneCmd DroneCmd_ACK_VIDEO = {9, 2};
 
 // COMMON FUNCTIONS
-static crc_t CRC_Calculate(const void *data, size_t len)
-{
-    const uint8_t *bytes = (const uint8_t *) data;
-    crc_t crc = bytes[0];
-    for (int i = 1; i < len; i++) {
-        crc ^= bytes[i];
-    }
-    return crc;
-}
-
 template<typename T, typename F = T>
 static inline void Flag_Set(T &flags, F flag, bool en)
 {
