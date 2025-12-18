@@ -42,6 +42,7 @@ typedef uint8_t fly_par_t;
 typedef char ssid_t[8];
 typedef uint16_t port_t;
 typedef uint8_t crc_t;
+typedef uint8_t status_t;
 
 struct RTSP
 {
@@ -275,12 +276,10 @@ struct ConnParams
     inline bool valid() const { return ssid[0] != 0 && timeout > 0; }
 };
 
-typedef uint8_t AckVal_t;
-enum AckVal { AckVal_KO = 0, AckVal_OK = 1 };
 struct Ack
 {
     BridgePacketId cmd;
-    AckVal_t val;
+    status_t val;
 };
 
 #pragma pack(pop)

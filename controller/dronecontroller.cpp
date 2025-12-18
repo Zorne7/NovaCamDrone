@@ -1,6 +1,7 @@
 #include "dronecontroller.h"
 
 #include <QEventLoop>
+#include <QDebug>
 
 template<typename T>
 static inline const QByteArray toData(const T &s, int size = -1)
@@ -24,6 +25,9 @@ DroneController::DroneController(QObject *parent)
     connect(&timerFly, &QTimer::timeout, this, &DroneController::sendFlyCmd);
 
     connect(&serial, &QSerialPort::readyRead, this, &DroneController::readSerial);
+    connect(&serial, &QSerialPort::errorOccurred, this, [=]() {
+        emit errorOccurred(serial.errorString());
+    });
 }
 
 bool DroneController::setSerial(const QString &portName, int baudRate)
@@ -175,7 +179,7 @@ void DroneController::processData()
 
     switch (packetId.type()) {
     case PacketType_Ack: {
-        if (payload.size() < sizeof(Ack)) {
+        if (payload.size() != sizeof(Ack)) {
             emit errorOccurred("Invalid payload of Ack received");
             break;
         }
@@ -185,12 +189,11 @@ void DroneController::processData()
     }
 
     case PacketType_ConnectionStat: {
-        if (payload.size() < sizeof(ProtocolChannel_t)) {
+        if (payload.size() != sizeof(status_t)) {
             emit errorOccurred("Invalid payload of ConnectionStatus received");
             break;
         }
-        const ProtocolChannel_t *status = reinterpret_cast<const ProtocolChannel_t *>(
-            payload.data());
+        const status_t *status = reinterpret_cast<const status_t *>(payload.data());
         emit connStatusRecv(*status);
         break;
     }
@@ -214,7 +217,8 @@ void DroneController::processData()
             break;
         }
         case Channel_RTP_UDP:
-            currentFrame.push_back(payload);
+            // currentFrame.push_back(payload);
+            qDebug() << payload.toHex();
             // TODO: add parsing of frame
             break;
         case Channel_RTCP_UDP:
@@ -252,9 +256,8 @@ void DroneController::readSerial()
             bytesAvailable -= r;
         }
 
-        const ProtocolChannel_t headerChan = lastHeader.id.chan();
-        const int size = MIN(bytesAvailable,
-                             lastHeader.dataSize - channelBuffMap[headerChan].size());
+        const ProtocolChannel_t chan = lastHeader.id.chan();
+        const int size = MIN(bytesAvailable, lastHeader.dataSize - channelBuffMap[chan].size());
         if (size > 0) {
             const QByteArray data = serial.read(size);
             if (data.size() < size) {
@@ -262,10 +265,10 @@ void DroneController::readSerial()
                 resetSerial();
                 break;
             }
-            channelBuffMap[headerChan].push_back(data);
+            channelBuffMap[chan].push_back(data);
         }
 
-        if (channelBuffMap[headerChan].size() >= lastHeader.dataSize) {
+        if (channelBuffMap[chan].size() >= lastHeader.dataSize) {
             processData();
         }
     }

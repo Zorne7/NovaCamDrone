@@ -34,8 +34,8 @@ public slots:
     void sendAckVideo();
 
 signals:
-    void ackRecv(Ack ack);
-    void connStatusRecv(ProtocolChannel_t status);
+    void ackRecv(const Ack &ack);
+    void connStatusRecv(status_t status);
     void errorOccurred(const QString &err);
     void rtspResponseRecv();
 

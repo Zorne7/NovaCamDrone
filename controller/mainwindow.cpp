@@ -20,6 +20,13 @@ MainWindow::MainWindow(QWidget *parent)
     refreshAvailableSerialPorts();
 
     connect(&droneCtrl, &DroneController::errorOccurred, ui->log, &QTextEdit::append);
+    connect(&droneCtrl, &DroneController::ackRecv, [=](const Ack &ack){
+        ui->log->append("Ack: Cmd = " + QString::number(ack.cmd.val) +
+                        ", Val = " + QString::number(ack.val));
+    });
+    connect(&droneCtrl, &DroneController::connStatusRecv, [=](status_t status){
+        ui->log->append("Connection status: " + QString::number(status));
+    });
 
     connect(ui->btnSetConn, &QPushButton::clicked, this, &MainWindow::sendSetConnection);
     connect(ui->btnGetConn, &QPushButton::clicked, &droneCtrl, &DroneController::sendGetConnection);
