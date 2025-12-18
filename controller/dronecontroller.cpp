@@ -204,14 +204,15 @@ void DroneController::processData()
             }
             parseDroneTlm(reinterpret_cast<const DroneTlm *>(payload.data()));
             break;
-        case Channel_RTSP_TCP:
+        case Channel_RTSP_TCP: {
             rtsp.buff.append(payload.toStdString());
-            bool available;
+            bool available = false;
             rtsp.firstPacketSize(&available);
             if (available) {
                 emit rtspResponseRecv();
             }
             break;
+        }
         case Channel_RTP_UDP:
             currentFrame.push_back(payload);
             // TODO: add parsing of frame

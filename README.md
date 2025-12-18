@@ -55,12 +55,12 @@ drone-1/
 
 ### Comandi Base (2 byte)
 
-| Comando   | Codice     | Descrizione         |
-| --------- | ---------- | ------------------- |
-| Heartbeat | `{1, 1}`   | Keepalive (ogni 1s) |
-| Stop      | `{8, 1}`   | Stop controllo      |
-| Camera    | `{6, 1/2}` | Switch camera       |
-| Ack       | `{9, 1/2}` | Ack foto/video      |
+| Comando   | Codice     | Descrizione         		|
+| --------- | ---------- | ------------------------ |
+| Heartbeat | `{1, 1}`   | Keepalive (ogni 1s) 		|
+| Stop      | `{8, 1}`   | Stop controllo      		|
+| Camera    | `{6, 1/2}` | Switch camera front/back |
+| Ack       | `{9, 1/2}` | Ack foto/video      		|
 
 ### Comandi Volo (9 byte)
 
