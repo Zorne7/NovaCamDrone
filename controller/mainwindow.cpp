@@ -21,8 +21,10 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect(&droneCtrl, &DroneController::errorOccurred, ui->log, &QTextEdit::append);
     connect(&droneCtrl, &DroneController::ackRecv, [=](const Ack &ack){
-        ui->log->append("Ack: Cmd = " + QString::number(ack.cmd.val) +
-                        ", Val = " + QString::number(ack.val));
+        if(ack.val == 0 || ui->debugCheck->isChecked()){
+            ui->log->append("Ack: Cmd = " + QString::number(ack.cmd.val) +
+                            ", Val = " + QString::number(ack.val));
+        }
     });
     connect(&droneCtrl, &DroneController::connStatusRecv, [=](status_t status){
         ui->log->append("Connection status: " + QString::number(status));
