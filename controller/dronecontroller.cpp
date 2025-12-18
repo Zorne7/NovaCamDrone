@@ -170,19 +170,27 @@ void DroneController::parseDroneTlm(const DroneTlm *tlm)
 void DroneController::processData()
 {
     const BridgePacketId packetId = lastHeader.id;
-    const QByteArray packetPayload = channelBuffMap.take(packetId.chan());
+    const QByteArray payload = channelBuffMap.take(packetId.chan());
     lastHeader = BridgePacketHeader();
 
     switch (packetId.type()) {
     case PacketType_Ack: {
-        const Ack *ack = reinterpret_cast<const Ack *>(packetPayload.data());
+        if (payload.size() < sizeof(Ack)) {
+            emit errorOccurred("Invalid payload of Ack received");
+            break;
+        }
+        const Ack *ack = reinterpret_cast<const Ack *>(payload.data());
         emit ackRecv(*ack);
         break;
     }
 
     case PacketType_ConnectionStat: {
+        if (payload.size() < sizeof(ProtocolChannel_t)) {
+            emit errorOccurred("Invalid payload of ConnectionStatus received");
+            break;
+        }
         const ProtocolChannel_t *status = reinterpret_cast<const ProtocolChannel_t *>(
-            packetPayload.data());
+            payload.data());
         emit connStatusRecv(*status);
         break;
     }
@@ -190,10 +198,14 @@ void DroneController::processData()
     case PacketType_Forward: {
         switch (packetId.chan()) {
         case Channel_Ctrl_UDP:
-            parseDroneTlm(reinterpret_cast<const DroneTlm *>(packetPayload.data()));
+            if (payload.size() < sizeof(DroneTlm)) {
+                emit errorOccurred("Invalid payload of DroneTlm received");
+                break;
+            }
+            parseDroneTlm(reinterpret_cast<const DroneTlm *>(payload.data()));
             break;
         case Channel_RTSP_TCP:
-            rtsp.buff.append(packetPayload.toStdString());
+            rtsp.buff.append(payload.toStdString());
             bool available;
             rtsp.firstPacketSize(&available);
             if (available) {
@@ -201,7 +213,7 @@ void DroneController::processData()
             }
             break;
         case Channel_RTP_UDP:
-            currentFrame.push_back(packetPayload);
+            currentFrame.push_back(payload);
             // TODO: add parsing of frame
             break;
         case Channel_RTCP_UDP:
