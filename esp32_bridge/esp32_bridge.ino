@@ -104,7 +104,7 @@ public:
 
     bool ok = false;
 
-    if(clientPkt.header.dataSize == bridgePkt.payload.size()) {
+    if(clientPkt.header.dataSize == clientPkt.payload.size()) {
 
       switch (clientPkt.header.id.type()){
 
@@ -113,7 +113,7 @@ public:
             break;
           }
           disconnectFromDrone();
-          connParams = *(ConnParams *)bridgePkt.payload.data();
+          connParams = *(ConnParams *)clientPkt.payload.data();
           ok = true;
           break;
 
@@ -127,11 +127,11 @@ public:
           switch (clientPkt.header.id.chan()) {
             case Channel_Ctrl_UDP:              
               ctrl.beginPacket(DRONE_IP, DRONE_CTRL_PORT);
-              ok = ctrl.write(bridgePkt.payload.data(), bridgePkt.payload.size()) == bridgePkt.payload.size();
+              ok = ctrl.write(clientPkt.payload.data(), clientPkt.payload.size()) == clientPkt.payload.size();
               ctrl.endPacket();
               break;
             case Channel_RTSP_TCP:
-              ok = rtsp.write(bridgePkt.payload.data(), bridgePkt.payload.size()) == bridgePkt.payload.size();
+              ok = rtsp.write(clientPkt.payload.data(), clientPkt.payload.size()) == clientPkt.payload.size();
               break;
             default:
               break;
@@ -208,7 +208,8 @@ void setup()
 // ===== MAIN LOOP =====
 void loop() 
 {
-  if (!bridge.isConnected()) {
+  bool connected = bridge.isConnected();
+  if (!connected) {
     const unsigned long now = millis();
     if (now - lastTryConnection >= bridge.connectionTimeout()) {
       connecting = bridge.connectToDrone();
@@ -223,9 +224,11 @@ void loop()
   }
 
   bridge.parseClientCmd();
-  bridge.forwardDroneTlm();
-  bridge.forwardDroneResp();
-  bridge.forwardDroneVideo();
+  if(connected){
+    bridge.forwardDroneTlm();
+    bridge.forwardDroneResp();
+    bridge.forwardDroneVideo();
+  }
 
   if (LOOP_DELAY > 0) {
     delay(LOOP_DELAY);
