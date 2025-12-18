@@ -19,8 +19,8 @@ struct BridgePacket {
   void setData(const T &val)
   {
     header.dataSize = sizeof(T);
-    bridgePkt.payload.resize(sizeof(T));
-    T *data = (T *)bridgePkt.payload.data();
+    payload.resize(sizeof(T));
+    T *data = (T *)payload.data();
     *data = val;
   }
 };
