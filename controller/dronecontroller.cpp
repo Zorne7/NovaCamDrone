@@ -2,7 +2,7 @@
 
 #include <QEventLoop>
 
-template <typename T>
+template<typename T>
 static inline const QByteArray toData(const T &s, int size = -1)
 {
     if constexpr (std::is_same_v<T, string>) {
@@ -10,23 +10,6 @@ static inline const QByteArray toData(const T &s, int size = -1)
     } else {
         return QByteArray(reinterpret_cast<const char *>(&s), size < 0 ? sizeof(s) : size);
     }
-}
-
-static inline int RTSP_FisrtPacketSize(const QByteArray &buff)
-{
-    const int headerEnd = buff.indexOf(RTSP_END_SECTION);
-    if (headerEnd < 0) {
-        return 0; // incomplete header
-    }
-    const QByteArray header = buff.left(headerEnd);
-    const int contentLen = QString::fromStdString(RTSP_GetField(header.toStdString(), "Content-Length")).toInt();
-    const int totSize = headerEnd + QByteArray(RTSP_END_SECTION).size() + (contentLen > 0 ? contentLen : 0);
-    return totSize;
-}
-
-static inline bool RTSP_PacketAvailable(const QByteArray &buff)
-{
-    return buff.size() >= RTSP_FisrtPacketSize(buff);
 }
 
 DroneController::DroneController(QObject *parent)
@@ -61,7 +44,7 @@ void DroneController::resetSerial()
     serial.close();
     lastHeader = BridgePacketHeader();
     bool ok = serial.open(QIODevice::ReadWrite);
-    if(!ok){
+    if (!ok) {
         emit errorOccurred("Error resetting serial");
     }
 }
@@ -78,7 +61,8 @@ bool DroneController::sendCmd(const BridgePacketId &id, const QByteArray &data)
     if (ok) {
         serial.flush();
     } else {
-        emit errorOccurred("Error sending cmd " + hex(id.val) + " [" + QString::number(data.size()) + "]: " + data.toHex());
+        emit errorOccurred("Error sending cmd " + hex(id.val) + " [" + QString::number(data.size())
+                           + "]: " + data.toHex());
     }
     return ok;
 }
@@ -123,27 +107,22 @@ void DroneController::sendFlyCmd()
 
 bool DroneController::setVideo(bool enabled)
 {
+    static const BridgePacketId id = BridgePacketId(PacketType_Forward, Channel_RTSP_TCP);
     bool ok;
-
     if (enabled) {
-        ok =
-            sendCmd(BridgePacketId(PacketType_Forward, Channel_RTSP_TCP), toData(RTSP_Options(cseq)))
-            && waitRtspResponse(RTSP_RESP_TIMEOUT_MS) && RTSP_RespOk(readRtspResponse().toStdString())
-            && sendCmd(BridgePacketId(PacketType_Forward, Channel_RTSP_TCP), toData(RTSP_Describe(cseq)))
-            && waitRtspResponse(RTSP_RESP_TIMEOUT_MS) && RTSP_RespOk(readRtspResponse().toStdString())
-            && sendCmd(BridgePacketId(PacketType_Forward, Channel_RTSP_TCP), toData(RTSP_Setup(cseq)))
-            && waitRtspResponse(RTSP_RESP_TIMEOUT_MS);
-        if(ok){
-            const string resp = readRtspResponse().toStdString();
-            sessionId = RTSP_RespOk(resp) ? toData(RTSP_GetField(resp, "Session")).trimmed() : "";
-            ok = !sessionId.isEmpty()
-                 && sendCmd(BridgePacketId(PacketType_Forward, Channel_RTSP_TCP), toData(RTSP_Play(cseq, sessionId.toStdString())))
-                 && waitRtspResponse(RTSP_RESP_TIMEOUT_MS) && RTSP_RespOk(readRtspResponse().toStdString());
+        ok = sendCmd(id, toData(rtsp.options())) && waitRtspResponse(RTSP_RESP_TIMEOUT_MS)
+             && RTSP::respOk(rtsp.readResponse()) && sendCmd(id, toData(rtsp.describe()))
+             && waitRtspResponse(RTSP_RESP_TIMEOUT_MS) && RTSP::respOk(rtsp.readResponse())
+             && sendCmd(id, toData(rtsp.setup())) && waitRtspResponse(RTSP_RESP_TIMEOUT_MS);
+        if (ok) {
+            const string resp = rtsp.readResponse();
+            rtsp.sessionId = RTSP::respOk(resp) ? toData(RTSP::getField(resp, "Session")) : "";
+            ok = !rtsp.sessionId.empty() && sendCmd(id, toData(rtsp.play()))
+                 && waitRtspResponse(RTSP_RESP_TIMEOUT_MS) && RTSP::respOk(rtsp.readResponse());
         }
     } else {
-        ok =
-            sendCmd(BridgePacketId(PacketType_Forward, Channel_RTSP_TCP), toData(RTSP_Stop(cseq, sessionId.toStdString())))
-            && waitRtspResponse(RTSP_RESP_TIMEOUT_MS) && RTSP_RespOk(readRtspResponse().toStdString());
+        ok = sendCmd(id, toData(rtsp.stop())) && waitRtspResponse(RTSP_RESP_TIMEOUT_MS)
+             && RTSP::respOk(rtsp.readResponse());
     }
 
     return ok;
@@ -176,7 +155,7 @@ void DroneController::sendAckVideo()
 
 void DroneController::parseDroneTlm(const DroneTlm *tlm)
 {
-    switch(tlm->fdbkType){
+    switch (tlm->fdbkType) {
     case FdbkType_Photo:
         sendAckPhoto(); // TODO: send ack only if necessary
         break;
@@ -195,7 +174,6 @@ void DroneController::processData()
     lastHeader = BridgePacketHeader();
 
     switch (packetId.type()) {
-
     case PacketType_Ack: {
         const Ack *ack = reinterpret_cast<const Ack *>(packetPayload.data());
         emit ackRecv(*ack);
@@ -203,7 +181,8 @@ void DroneController::processData()
     }
 
     case PacketType_ConnectionStat: {
-        const ProtocolChannel_t *status = reinterpret_cast<const ProtocolChannel_t *>(packetPayload.data());
+        const ProtocolChannel_t *status = reinterpret_cast<const ProtocolChannel_t *>(
+            packetPayload.data());
         emit connStatusRecv(*status);
         break;
     }
@@ -214,8 +193,10 @@ void DroneController::processData()
             parseDroneTlm(reinterpret_cast<const DroneTlm *>(packetPayload.data()));
             break;
         case Channel_RTSP_TCP:
-            rtspResponse.append(packetPayload);
-            if(RTSP_PacketAvailable(rtspResponse)){
+            rtsp.buff.append(packetPayload.toStdString());
+            bool available;
+            rtsp.firstPacketSize(&available);
+            if (available) {
                 emit rtspResponseRecv();
             }
             break;
@@ -243,14 +224,14 @@ void DroneController::processData()
 
 void DroneController::readSerial()
 {
-    for (int bytesAvailable = serial.bytesAvailable(); bytesAvailable > 0; bytesAvailable = serial.bytesAvailable()) {
-
-        if(lastHeader.id.type() == PacketType_Invalid){
-            if(bytesAvailable < sizeof(lastHeader)){
+    for (int bytesAvailable = serial.bytesAvailable(); bytesAvailable > 0;
+         bytesAvailable = serial.bytesAvailable()) {
+        if (lastHeader.id.type() == PacketType_Invalid) {
+            if (bytesAvailable < sizeof(lastHeader)) {
                 break;
             }
             int r = serial.read(reinterpret_cast<char *>(&lastHeader), sizeof(lastHeader));
-            if(r < sizeof(lastHeader)){
+            if (r < sizeof(lastHeader)) {
                 emit errorOccurred("Error reading packet header from serial");
                 resetSerial();
                 break;
@@ -259,10 +240,11 @@ void DroneController::readSerial()
         }
 
         const ProtocolChannel_t headerChan = lastHeader.id.chan();
-        const int size = MIN(bytesAvailable, lastHeader.dataSize - channelBuffMap[headerChan].size());
-        if(size > 0){
+        const int size = MIN(bytesAvailable,
+                             lastHeader.dataSize - channelBuffMap[headerChan].size());
+        if (size > 0) {
             const QByteArray data = serial.read(size);
-            if(data.size() < size){
+            if (data.size() < size) {
                 emit errorOccurred("Error reading packet payload from serial");
                 resetSerial();
                 break;
@@ -270,7 +252,7 @@ void DroneController::readSerial()
             channelBuffMap[headerChan].push_back(data);
         }
 
-        if(channelBuffMap[headerChan].size() >= lastHeader.dataSize) {
+        if (channelBuffMap[headerChan].size() >= lastHeader.dataSize) {
             processData();
         }
     }
@@ -278,7 +260,9 @@ void DroneController::readSerial()
 
 bool DroneController::waitRtspResponse(int timeout_ms)
 {
-    if(RTSP_PacketAvailable(rtspResponse)){
+    bool available;
+    rtsp.firstPacketSize(&available);
+    if (available) {
         return true;
     }
     QEventLoop loop;
@@ -288,15 +272,4 @@ bool DroneController::waitRtspResponse(int timeout_ms)
     timer.start(timeout_ms);
     loop.exec();
     return timer.isActive();
-}
-
-const QByteArray DroneController::readRtspResponse()
-{
-    const int firstPackSize = RTSP_FisrtPacketSize(rtspResponse);
-    if (rtspResponse.size() < firstPackSize) {
-        return QByteArray(); // incomplete response
-    }
-    const QByteArray fullResp = rtspResponse.left(firstPackSize);
-    rtspResponse = rtspResponse.mid(firstPackSize); // remove response read
-    return fullResp;
 }

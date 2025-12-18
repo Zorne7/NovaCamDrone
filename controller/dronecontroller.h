@@ -43,7 +43,6 @@ private:
     bool sendCmd(const BridgePacketId &id, const QByteArray &data = QByteArray());
     void readSerial();
     bool waitRtspResponse(int timeout_ms);
-    const QByteArray readRtspResponse();
     void parseDroneTlm(const DroneTlm *tlm);
     void processData();
 
@@ -53,9 +52,7 @@ private:
     FlyControls flyControls;
     BridgePacketHeader lastHeader;
     QMap<ProtocolChannel_t, QByteArray> channelBuffMap;
-    int cseq = 1;
-    QByteArray sessionId;
-    QByteArray rtspResponse;
+    RTSP rtsp;
     QByteArray currentFrame;
 };
 
