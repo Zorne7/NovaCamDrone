@@ -14,6 +14,15 @@ typedef std::vector<uint8_t> ByteArray;
 struct BridgePacket {
   BridgePacketHeader header;
   ByteArray payload;
+
+  template <typename T>
+  void setData(const T &val)
+  {
+    header.dataSize = sizeof(T);
+    bridgePkt.payload.resize(sizeof(T));
+    T *data = (T *)bridgePkt.payload.data();
+    *data = val;
+  }
 };
 
 static inline ByteArray UDP_read(WiFiUDP &udp)
@@ -109,9 +118,8 @@ public:
           break;
 
         case PacketType_GetConnection:
-          bridgePkt.payload.resize(1);
-          bridgePkt.payload[0] = isConnected();
-          bridgePkt.header = BridgePacketHeader(BridgePacketId(PacketType_ConnectionStat), bridgePkt.payload.size());
+          bridgePkt.header.id = PacketType_ConnectionStat;
+          bridgePkt.setData((status_t)isConnected());
           sendToClient(bridgePkt);
           return; // return to not send ack
 
@@ -135,11 +143,8 @@ public:
       }
     }
 
-    bridgePkt.payload.resize(sizeof(Ack));
-    Ack *ack = (Ack *)bridgePkt.payload.data();
-    ack->cmd = clientPkt.header.id;
-    ack->val = ok ? AckVal_OK : AckVal_KO;
-    bridgePkt.header = BridgePacketHeader(BridgePacketId(PacketType_Ack), bridgePkt.payload.size());
+    bridgePkt.header.id = PacketType_Ack;
+    bridgePkt.setData(Ack{.cmd = clientPkt.header.id, .val = ok});
     sendToClient(bridgePkt);
   }
 
