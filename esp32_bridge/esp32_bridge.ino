@@ -118,7 +118,7 @@ public:
           break;
 
         case PacketType_GetConnection:
-          bridgePkt.header.id = PacketType_ConnectionStat;
+          bridgePkt.header.id = BridgePacketId(PacketType_ConnectionStat);
           bridgePkt.setData((status_t)isConnected());
           sendToClient(bridgePkt);
           return; // return to not send ack
@@ -143,7 +143,7 @@ public:
       }
     }
 
-    bridgePkt.header.id = PacketType_Ack;
+    bridgePkt.header.id = BridgePacketId(PacketType_Ack);
     bridgePkt.setData(Ack{.cmd = clientPkt.header.id, .val = ok});
     sendToClient(bridgePkt);
   }

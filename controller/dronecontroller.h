@@ -43,7 +43,8 @@ private:
     bool sendCmd(const BridgePacketId &id, const QByteArray &data = QByteArray());
     void readSerial();
     bool waitRtspResponse(int timeout_ms);
-    void parseDroneTlm(const DroneTlm *tlm);
+    void parseDroneTlm(const QByteArray &tlmData);
+    void parseDroneVideo(const QByteArray &videoData);
     void processData();
 
     QSerialPort serial;

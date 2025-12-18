@@ -157,8 +157,12 @@ void DroneController::sendAckVideo()
     sendCmd(BridgePacketId(PacketType_Forward, Channel_Ctrl_UDP), toData(DroneCmd_ACK_VIDEO));
 }
 
-void DroneController::parseDroneTlm(const DroneTlm *tlm)
+void DroneController::parseDroneTlm(const QByteArray &tlmData)
 {
+    if(tlmData.size() < sizeof(DroneTlm)){
+        return;
+    }
+    const DroneTlm *tlm = reinterpret_cast<const DroneTlm *>(tlmData.data());
     switch (tlm->fdbkType) {
     case FdbkType_Photo:
         sendAckPhoto(); // TODO: send ack only if necessary
@@ -169,6 +173,13 @@ void DroneController::parseDroneTlm(const DroneTlm *tlm)
     default:
         break;
     }
+}
+
+void DroneController::parseDroneVideo(const QByteArray &videoData)
+{
+    // currentFrame.push_back(payload);
+    qDebug() << "VIDEO DATA:" << videoData.toHex();
+    // TODO: add parsing of frame
 }
 
 void DroneController::processData()
@@ -201,11 +212,7 @@ void DroneController::processData()
     case PacketType_Forward: {
         switch (packetId.chan()) {
         case Channel_Ctrl_UDP:
-            if (payload.size() < sizeof(DroneTlm)) {
-                emit errorOccurred("Invalid payload of DroneTlm received");
-                break;
-            }
-            parseDroneTlm(reinterpret_cast<const DroneTlm *>(payload.data()));
+            parseDroneTlm(payload);
             break;
         case Channel_RTSP_TCP: {
             rtsp.buff.append(payload.toStdString());
@@ -217,9 +224,7 @@ void DroneController::processData()
             break;
         }
         case Channel_RTP_UDP:
-            // currentFrame.push_back(payload);
-            qDebug() << payload.toHex();
-            // TODO: add parsing of frame
+            parseDroneVideo(payload);
             break;
         case Channel_RTCP_UDP:
             // ignore
