@@ -67,7 +67,8 @@ public:
   }
 
   uint16_t connectionTimeout() const { return connParams.timeout; }
-  bool isConnected() const { return WiFi.status() == WL_CONNECTED; }
+  status_t connectionStatus() const { return WiFi.status(); }
+  bool isConnected() const { return connectionStatus() == WL_CONNECTED; }
 
   void disconnectFromDrone()
   {    
@@ -119,7 +120,7 @@ public:
 
         case PacketType_GetConnection:
           bridgePkt.header.id = BridgePacketId(PacketType_ConnectionStat);
-          bridgePkt.setData((status_t)isConnected());
+          bridgePkt.setData(connectionStatus());
           sendToClient(bridgePkt);
           return true; // return to not send ack
 
@@ -159,7 +160,7 @@ private:
   {
     Serial.write((const uint8_t *)&pkt.header, sizeof(pkt.header));
     Serial.write(pkt.payload.data(), pkt.payload.size());
-    Serial.flush();
+    // Serial.flush();
   }
 
   bool forwardToClient(ProtocolChannel chan, const ByteArray &packet) {
