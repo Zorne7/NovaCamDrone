@@ -95,11 +95,11 @@ public:
     rtp.begin(DRONE_RTP_PORT);
   }
 
-  void parseClientCmd()
+  bool parseClientCmd()
   {
     if (!readFromClient(&clientPkt)) {
 	    // No cmd received
-      return;
+      return false;
     }
 
     bool ok = false;
@@ -121,7 +121,7 @@ public:
           bridgePkt.header.id = BridgePacketId(PacketType_ConnectionStat);
           bridgePkt.setData((status_t)isConnected());
           sendToClient(bridgePkt);
-          return; // return to not send ack
+          return true; // return to not send ack
 
         case PacketType_Forward:
           switch (clientPkt.header.id.chan()) {
@@ -146,11 +146,13 @@ public:
     bridgePkt.header.id = BridgePacketId(PacketType_Ack);
     bridgePkt.setData(Ack{.cmd = clientPkt.header.id, .val = ok});
     sendToClient(bridgePkt);
+
+    return true;
   }
 
-  void forwardDroneTlm() { forwardToClient(Channel_Ctrl_UDP, UDP_read(ctrl)); }
-  void forwardDroneResp() { forwardToClient(Channel_RTSP_TCP, TCP_read(rtsp)); }
-  void forwardDroneVideo() { forwardToClient(Channel_RTP_UDP, UDP_read(rtp)); }
+  void forwardDroneTlm() { while(forwardToClient(Channel_Ctrl_UDP, UDP_read(ctrl))){}; }
+  void forwardDroneResp() { while(forwardToClient(Channel_RTSP_TCP, TCP_read(rtsp))){}; }
+  void forwardDroneVideo() { while(forwardToClient(Channel_RTP_UDP, UDP_read(rtp))){}; }
 
 private:  
   void sendToClient(const BridgePacket &pkt)
@@ -160,13 +162,14 @@ private:
     Serial.flush();
   }
 
-  void forwardToClient(ProtocolChannel chan, const ByteArray &packet) {
+  bool forwardToClient(ProtocolChannel chan, const ByteArray &packet) {
     if(packet.empty()){
-      return;
+      return false;
     }
     bridgePkt.header = BridgePacketHeader(BridgePacketId(PacketType_Forward, chan), packet.size());
     bridgePkt.payload = packet;
     sendToClient(bridgePkt);
+    return true;
   }
   
   bool readFromClient(BridgePacket *pkt)
@@ -223,7 +226,7 @@ void loop()
     }
   }
 
-  bridge.parseClientCmd();
+  while(bridge.parseClientCmd()){};
   if(connected){
     bridge.forwardDroneTlm();
     bridge.forwardDroneResp();

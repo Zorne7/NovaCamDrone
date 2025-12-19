@@ -37,6 +37,7 @@ signals:
     void ackRecv(const Ack &ack);
     void connStatusRecv(status_t status);
     void errorOccurred(const QString &err);
+    void frameReady(const QByteArray &jpeg);
     void rtspResponseRecv();
 
 private:
@@ -54,7 +55,10 @@ private:
     BridgePacketHeader lastHeader;
     QMap<ProtocolChannel_t, QByteArray> channelBuffMap;
     RTSP rtsp;
-    QByteArray currentFrame;
+    struct Frame {
+        uint32_t timestamp;
+        QByteArray buffer;
+    } frame;
 };
 
 template <typename T>

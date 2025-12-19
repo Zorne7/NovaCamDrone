@@ -29,6 +29,13 @@ MainWindow::MainWindow(QWidget *parent)
     connect(&droneCtrl, &DroneController::connStatusRecv, [=](status_t status){
         ui->log->append("Connection status: " + QString::number(status));
     });
+    connect(&droneCtrl, &DroneController::frameReady, [=](const QByteArray &jpeg){
+        QImage img;
+        img.loadFromData(jpeg, "JPEG");
+        if (!img.isNull()) {
+            ui->frame->setPixmap(QPixmap::fromImage(img));
+        }
+    });
 
     connect(ui->btnSetConn, &QPushButton::clicked, this, &MainWindow::sendSetConnection);
     connect(ui->btnGetConn, &QPushButton::clicked, &droneCtrl, &DroneController::sendGetConnection);
