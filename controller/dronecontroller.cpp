@@ -181,7 +181,7 @@ void DroneController::parseDroneTlm(const QByteArray &tlmData)
         break;
     }
     if (tlmData.size() > sizeof(DroneTlm)) {
-        //qDebug() << "TLM:" << tlmData.mid(sizeof(DroneTlm)).toHex();
+        // qDebug() << "TLM:" << tlmData.mid(sizeof(DroneTlm)).toHex();
     }
 }
 

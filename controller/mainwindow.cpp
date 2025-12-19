@@ -20,22 +20,9 @@ MainWindow::MainWindow(QWidget *parent)
     refreshAvailableSerialPorts();
 
     connect(&droneCtrl, &DroneController::errorOccurred, ui->log, &QTextEdit::append);
-    connect(&droneCtrl, &DroneController::ackRecv, [=](const Ack &ack){
-        if(ack.val == 0 || ui->debugCheck->isChecked()){
-            ui->log->append("Ack: Cmd = " + QString::number(ack.cmd.val) +
-                            ", Val = " + QString::number(ack.val));
-        }
-    });
-    connect(&droneCtrl, &DroneController::connStatusRecv, [=](status_t status){
-        ui->log->append("Connection status: " + QString::number(status));
-    });
-    connect(&droneCtrl, &DroneController::frameReady, [=](const QByteArray &frameData) {
-        QImage img;
-        img.loadFromData(frameData, "JPEG");
-        if (!img.isNull()) {
-            ui->frame->setPixmap(QPixmap::fromImage(img));
-        }
-    });
+    connect(&droneCtrl, &DroneController::ackRecv, this, &MainWindow::onAckRecv);
+    connect(&droneCtrl, &DroneController::connStatusRecv, this, &MainWindow::onConnStatusRecv);
+    connect(&droneCtrl, &DroneController::frameReady, this, &MainWindow::onFrameReady);
 
     connect(ui->btnSetConn, &QPushButton::clicked, this, &MainWindow::sendSetConnection);
     connect(ui->btnGetConn, &QPushButton::clicked, &droneCtrl, &DroneController::sendGetConnection);
@@ -49,7 +36,6 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->btnClear, &QPushButton::clicked, ui->log, &QTextEdit::clear);
 
     connect(ui->btnRefresh, &QPushButton::clicked, this, &MainWindow::refreshAvailableSerialPorts);
-    connect(ui->portSelector, &QComboBox::currentTextChanged, this, &MainWindow::setSerial);
     connect(ui->baudSelector, &QComboBox::currentTextChanged, this, &MainWindow::setSerial);
 
     connect(ui->leftRightSlider, &QSlider::valueChanged, this, [=](int val) {
@@ -111,10 +97,14 @@ MainWindow::~MainWindow()
 
 void MainWindow::refreshAvailableSerialPorts()
 {
+    disconnect(ui->portSelector, &QComboBox::currentTextChanged, this, &MainWindow::setSerial);
+
     ui->portSelector->clear();
     for (const QSerialPortInfo &info : QSerialPortInfo::availablePorts()) {
         ui->portSelector->addItem(info.portName());
     }
+
+    connect(ui->portSelector, &QComboBox::currentTextChanged, this, &MainWindow::setSerial);
 }
 
 void MainWindow::setSerial()
@@ -165,5 +155,26 @@ void MainWindow::setVideo()
     bool ok = droneCtrl.setVideo(ui->btnVideo->isChecked());
     if(!ok){
         ui->btnVideo->setChecked(!ui->btnVideo->isChecked());
+    }
+}
+
+void MainWindow::onAckRecv(const Ack &ack)
+{
+    if (ack.val == 0 || ui->debugCheck->isChecked()) {
+        ui->log->append(QString("Ack: Cmd = %1, Val = %2").arg(ack.cmd.val).arg(ack.val));
+    }
+}
+
+void MainWindow::onConnStatusRecv(status_t connStatus)
+{
+    ui->connStatusEdit->setText(QString::number(connStatus));
+}
+
+void MainWindow::onFrameReady(const QByteArray &frameData)
+{
+    QImage img;
+    img.loadFromData(frameData, "JPEG");
+    if (!img.isNull()) {
+        ui->frame->setPixmap(QPixmap::fromImage(img));
     }
 }

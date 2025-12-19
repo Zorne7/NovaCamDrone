@@ -29,6 +29,10 @@ private slots:
     void sendSetConnection();
     void setVideo();
 
+    void onAckRecv(const Ack &ack);
+    void onConnStatusRecv(status_t connStatus);
+    void onFrameReady(const QByteArray &frameData);
+
 private:
     Ui::MainWindow *ui;
     DroneController droneCtrl;
