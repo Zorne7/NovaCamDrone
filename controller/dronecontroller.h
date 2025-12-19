@@ -1,12 +1,13 @@
 #ifndef DRONECONTROLLER_H
 #define DRONECONTROLLER_H
 
+#include <QMap>
 #include <QObject>
 #include <QSerialPort>
 #include <QTimer>
-#include <QMap>
 
 #include "../protocol.h"
+#include "decoder.h"
 
 class DroneController : public QObject
 {
@@ -37,7 +38,7 @@ signals:
     void ackRecv(const Ack &ack);
     void connStatusRecv(status_t status);
     void errorOccurred(const QString &err);
-    void frameReady(const QByteArray &jpeg);
+    void frameReady(const QByteArray &frameData);
     void rtspResponseRecv();
 
 private:
@@ -45,7 +46,6 @@ private:
     void readSerial();
     bool waitRtspResponse(int timeout_ms);
     void parseDroneTlm(const QByteArray &tlmData);
-    void parseDroneVideo(const QByteArray &videoData);
     void processData();
 
     QSerialPort serial;
@@ -55,10 +55,7 @@ private:
     BridgePacketHeader lastHeader;
     QMap<ProtocolChannel_t, QByteArray> channelBuffMap;
     RTSP rtsp;
-    struct Frame {
-        uint32_t timestamp;
-        QByteArray buffer;
-    } frame;
+    Decoder decoder;
 };
 
 template <typename T>
