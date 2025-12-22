@@ -5,7 +5,7 @@
 #include <QVBoxLayout>
 #include <QWidget>
 
-static const QList<int> BAUDRATES = {0, 9600, 19200, 38400, 57600, 115200, 921600};
+static const QList<int> BAUDRATES = {0, 115200, 921600, 1000000, 2000000};
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)

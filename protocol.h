@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <string>
+#include <vector>
 
 using namespace std;
 
@@ -41,8 +42,9 @@ using namespace std;
 typedef uint8_t fly_par_t;
 typedef char ssid_t[8];
 typedef uint16_t port_t;
+typedef vector<uint8_t> ByteArray;
 typedef uint8_t crc_t;
-typedef uint8_t status_t;
+static crc_t calculate_crc(const void *data, size_t len);
 
 struct RTSP
 {
@@ -55,7 +57,7 @@ struct RTSP
         return resp.rfind("RTSP/" RTSP_VER " 200 OK", 0) == 0;
     }
 
-    static inline string getField(const string &resp, const string &field, bool trim = true)
+    static inline const string getField(const string &resp, const string &field, bool trim = true)
     {
         const string fieldStr = field + ":";
         const size_t idx = resp.find(fieldStr);
@@ -99,7 +101,7 @@ struct RTSP
         return totSize;
     }
 
-    inline string readResponse()
+    inline const string readResponse()
     {
         bool available = false;
         const size_t firstPackSize = firstPacketSize(&available);
@@ -112,27 +114,27 @@ struct RTSP
     }
 
     // packets
-    inline string options()
+    inline const string options()
     {
         return "OPTIONS " DRONE_CAM " RTSP/" RTSP_VER RTSP_END_PAR "CSeq: " + to_string(cseq++)
                + RTSP_END_PAR "User-Agent: " RTSP_USER_AGENT RTSP_END_SECTION;
     }
 
-    inline string describe()
+    inline const string describe()
     {
         return "DESCRIBE " DRONE_CAM " RTSP/" RTSP_VER RTSP_END_PAR
                "Accept: application/sdp" RTSP_END_PAR "CSeq: "
                + to_string(cseq++) + RTSP_END_PAR "User-Agent: " RTSP_USER_AGENT RTSP_END_SECTION;
     }
 
-    inline string setup()
+    inline const string setup()
     {
         return "SETUP " DRONE_CAM "/track0 RTSP/" RTSP_VER RTSP_END_PAR
                "Transport: RTP/AVP/UDP;unicast;client_port=" RTSP_CLIENT_PORTS RTSP_END_PAR "CSeq: "
                + to_string(cseq++) + RTSP_END_PAR "User-Agent: " RTSP_USER_AGENT RTSP_END_SECTION;
     }
 
-    inline string play()
+    inline const string play()
     {
         return "PLAY " DRONE_CAM "/ RTSP/" RTSP_VER RTSP_END_PAR "Range: npt=0.000-" RTSP_END_PAR
                "CSeq: "
@@ -141,7 +143,7 @@ struct RTSP
                + RTSP_END_SECTION;
     }
 
-    inline string stop()
+    inline const string stop()
     {
         return "TEARDOWN " DRONE_CAM " RTSP/" RTSP_VER RTSP_END_PAR "CSeq: " + to_string(cseq++)
                + RTSP_END_PAR "User-Agent: " RTSP_USER_AGENT RTSP_END_PAR "Session: " + sessionId
@@ -188,26 +190,17 @@ struct FlyControls
 
 struct FlyCmd
 {
-    explicit FlyCmd(const FlyControls &controls = FlyControls())
-        : flyControls(controls)
+    const uint8_t header = 0x03;
+    const uint8_t start = 0x66;
+    FlyControls flyControls = FlyControls();
+    crc_t crc = calculate_crc(&flyControls, sizeof(flyControls));
+    const uint8_t end = 0x99;
+
+    inline void setControls(const FlyControls &controls)
     {
+        flyControls = controls;
         flyControls.normalize();
         crc = calculate_crc(&flyControls, sizeof(flyControls));
-    }
-    uint8_t header = 0x03;
-    uint8_t start = 0x66;
-    FlyControls flyControls = FlyControls();
-    crc_t crc = 0x00; // use calculate_crc on flyControls
-    uint8_t end = 0x99;
-
-    static inline crc_t calculate_crc(const void *data, size_t len)
-    {
-        const uint8_t *bytes = (const uint8_t *) data;
-        crc_t crc = bytes[0];
-        for (int i = 1; i < len; i++) {
-            crc ^= bytes[i];
-        }
-        return crc;
     }
 };
 
@@ -226,47 +219,22 @@ struct DroneTlm
     TlmFdbkType_t fdbkType;
     uint8_t numPhoto;
     uint8_t numVideo;
-};
+    uint8_t dataSize;
+    uint8_t data[15];
 
-typedef uint8_t ProtocolChannel_t;
-enum ProtocolChannel {
-    Channel_None = 0x00,
-    Channel_Ctrl_UDP = 0x01,
-    Channel_RTSP_TCP = 0x02,
-    Channel_RTP_UDP = 0x04,
-    Channel_RTCP_UDP = 0x08,
-};
-
-typedef uint8_t BridgePacketType_t;
-enum BridgePacketType {
-    PacketType_Invalid = 0x00,
-    PacketType_Forward = 0x01,
-    // Command to Bridge
-    PacketType_SetConnection = 0x02,
-    PacketType_GetConnection = 0x03,
-    // Response from Bridge
-    PacketType_Ack = 0x04,
-    PacketType_ConnectionStat = 0x05,
-};
-
-struct BridgePacketId
-{
-    explicit BridgePacketId(BridgePacketType_t type = PacketType_Invalid,
-                            ProtocolChannel_t chan = Channel_None)
-        : val(((type & 0x0F) << 4) | (chan & 0x0F))
-    {}
-    uint8_t val;
-    inline BridgePacketType_t type() const { return (val >> 4) & 0x0F; }
-    inline ProtocolChannel_t chan() const { return val & 0x0F; }
-};
-
-struct BridgePacketHeader
-{
-    explicit BridgePacketHeader(BridgePacketId packId = BridgePacketId(), uint16_t packDataSize = 0)
-        : id(packId)
-        , dataSize(packDataSize) {};
-    BridgePacketId id;
-    uint16_t dataSize;
+    inline bool fromBytes(const ByteArray &bytes)
+    {
+        static const int MIN_SIZE = sizeof(DroneTlm) - sizeof(dataSize) - sizeof(data);
+        if(bytes.size() < MIN_SIZE) {
+            return false;
+        }
+        memcpy(this, bytes.data(), MIN_SIZE);
+        dataSize = bytes.size() - MIN_SIZE;
+        if(dataSize > 0){
+            memcpy(data, bytes.data() + MIN_SIZE, dataSize);
+        }
+        return true;
+    }
 };
 
 struct ConnParams
@@ -276,10 +244,72 @@ struct ConnParams
     inline bool valid() const { return ssid[0] != 0 && timeout > 0; }
 };
 
+typedef uint8_t ConnStatus_t; // Imported from arduino library
+enum ConnStatus {
+    NO_SHIELD = 255,
+    STOPPED = 254,
+    IDLE_STATUS = 0,
+    NO_SSID_AVAIL = 1,
+    SCAN_COMPLETED = 2,
+    CONNECTED = 3,
+    CONNECT_FAILED = 4,
+    CONNECTION_LOST = 5,
+    DISCONNECTED = 6,
+    UNKNOWN_STATUS = 200, // Internal use only
+};
+
+struct DroneVideo {
+    uint16_t dataSize;
+};
+
+typedef uint8_t PacketType_t;
+enum PacketType {
+    PacketType_Invalid = 0x00,
+    // Command
+    PacketType_SetConnection,
+    PacketType_GetConnection,
+    PacketType_DroneCmd,
+    PacketType_SetControls,
+    PacketType_SetVideo,
+    // Telemetry
+    PacketType_Ack,
+    PacketType_ConnectionStat,
+    PacketType_DroneTlm,
+    PacketType_DroneVideo,
+};
+
+typedef uint8_t AckVal_t;
+enum AckVal { AckVal_KO = 0, AckVal_CrcErr, AckVal_OK };
 struct Ack
 {
-    BridgePacketId cmd;
-    status_t val;
+    PacketType_t cmd;
+    AckVal_t val;
+};
+
+union PacketData {
+    // Command
+    ConnParams connParams;
+    DroneCmd droneCmd;
+    FlyControls controls;
+    bool videoEnabled;
+    // Telemetry
+    Ack ack;
+    ConnStatus_t connStatus;
+    DroneTlm droneTlm;
+    DroneVideo droneVideo;
+};
+
+struct Packet {
+    explicit Packet(PacketType packType = PacketType_Invalid, const PacketData &packData = {0})
+        : type(packType), data(packData), crc(0) {
+        if(type != PacketType_Invalid){ crc = calculate_crc(this, sizeof(Packet) - sizeof(crc)); }
+    }
+
+    PacketType_t type;
+    PacketData data;
+    crc_t crc;
+
+    inline bool checkCrc() const { return calculate_crc(this, sizeof(Packet) - sizeof(crc)) == crc; }
 };
 
 #pragma pack(pop)
@@ -293,6 +323,22 @@ static constexpr DroneCmd DroneCmd_ACK_PHOTO = {9, 1};
 static constexpr DroneCmd DroneCmd_ACK_VIDEO = {9, 2};
 
 // COMMON FUNCTIONS
+static inline crc_t calculate_crc(const void *data, size_t len)
+{
+    const uint8_t *bytes = (const uint8_t *) data;
+    crc_t crc = bytes[0];
+    for (int i = 1; i < len; i++) {
+        crc ^= bytes[i];
+    }
+    return crc;
+}
+
+template<typename T>
+static inline const ByteArray toBytes(const T &data)
+{
+    return ByteArray((const uint8_t *)&data, (const uint8_t *)&data + sizeof(T));
+}
+
 template<typename T, typename F = T>
 static inline void Flag_Set(T &flags, F flag, bool en)
 {
@@ -302,5 +348,146 @@ static inline void Flag_Set(T &flags, F flag, bool en)
         flags &= (T) (~flag);
     }
 }
+
+// COMMON INTERFACES
+class BridgeInterface {
+public:
+
+    virtual void init() = 0;
+    virtual ConnStatus_t connectionStatus() const = 0;
+    virtual void disconnectFromDrone() = 0;
+    virtual void start() = 0;
+
+    bool connectToDrone() {
+        if(!connParams.valid()){
+            return false;
+        }
+        const time_t now = currentTime();
+        if (now - lastConnectionStart < connParams.timeout) {
+            return true;
+        }
+        const string ssid = DRONE_WIFI_PREFIX + string(connParams.ssid);
+        startConnection(ssid, DRONE_PASSW);
+        lastConnectionStart = now;
+        return true;
+    }
+
+    void step() {
+        const time_t now = currentTime();
+        if(now - lastHeartbeatSent >= HB_INTERVAL_MS){
+            if(sendDroneCmd(DroneCmd_HEARTBEAT)){
+                lastHeartbeatSent = now;
+            }
+        }
+        if(now - lastFlyCmdSent >= FLY_INTERVAL_MS){
+            if(sendDroneCmdData(toBytes(flyCmd))){
+                lastFlyCmdSent = now;
+            }
+        }
+    }
+
+    bool parseCmdPacket()
+    {
+        Packet cmdPkt;
+        if (!readCmdPacket(&cmdPkt)) {
+            // No cmd received
+            return false;
+        }
+
+        if(!cmdPkt.checkCrc()) {
+            // Crc error
+            sendTlmPacket(Packet(PacketType_Ack, {.ack = {.cmd = cmdPkt.type, .val = AckVal_CrcErr}}));
+            return true;
+        }
+
+        bool ok = false;
+
+        switch (cmdPkt.type){
+
+        case PacketType_SetConnection:
+            disconnectFromDrone();
+            connParams = cmdPkt.data.connParams;
+            ok = true;
+            break;
+
+        case PacketType_GetConnection:
+            forwardConnStatus();
+            return true; // Return to not send ack
+
+        case PacketType_DroneCmd:
+            ok = sendDroneCmd(cmdPkt.data.droneCmd);
+            break;
+
+        case PacketType_SetControls:
+            flyCmd.setControls(cmdPkt.data.controls);
+            ok = true;
+            break;
+
+        case PacketType_SetVideo:
+            // TODO: to implement
+            break;
+
+        default:
+            break;
+        }
+
+        const AckVal_t ackVal = ok ? AckVal_OK : AckVal_KO;
+        sendTlmPacket(Packet(PacketType_Ack, {.ack = {.cmd = cmdPkt.type, .val = ackVal}}));
+
+        return true;
+    }
+
+    bool forwardConnStatus() {
+        return sendTlmPacket(Packet(PacketType_ConnectionStat, {.connStatus = connectionStatus()}));
+    }
+
+    bool forwardDroneTlm() {
+        DroneTlm droneTlm;
+        if(!readDroneTlm(&droneTlm)){
+            return false;
+        }
+        return sendTlmPacket(Packet(PacketType_DroneTlm, {.droneTlm = droneTlm}));
+    }
+
+    bool forwardDroneVideo() {
+        ByteArray videoData = readDroneVideoData();
+        if(videoData.empty()){
+            return false;
+        }
+        videoData.push_back(calculate_crc(videoData.data(), videoData.size()));
+        const Packet tlmPkt = Packet(PacketType_DroneVideo, {.droneVideo = {.dataSize = (uint16_t)videoData.size()}});
+        return sendTlmPacket(tlmPkt) && sendTlmPacketData(videoData);
+    }
+
+protected:
+    bool readCmdPacket(Packet *pkt) {
+        const ByteArray pktContent = readCmdPacketData();
+        if(pktContent.size() < sizeof(*pkt)) {
+            return false;
+        }
+        *pkt = *(typeof(pkt))pktContent.data();
+        return true;
+    }
+
+    bool sendTlmPacket(const Packet &pkt) { return sendTlmPacketData(toBytes(pkt)); }
+
+    bool sendDroneCmd(const DroneCmd &droneCmd) { return sendDroneCmdData(toBytes(droneCmd)); };
+
+    bool readDroneTlm(DroneTlm *droneTlm) { return droneTlm->fromBytes(readDroneTlmData()); }
+
+    virtual time_t currentTime() const = 0;
+    virtual void startConnection(const string &ssid, const string &passw) = 0;
+    virtual const ByteArray readCmdPacketData() = 0;
+    virtual bool sendTlmPacketData(const ByteArray &tlmData) = 0;
+    virtual bool sendDroneCmdData(const ByteArray &cmdData) = 0;
+    virtual const ByteArray readDroneTlmData() = 0;
+    virtual const ByteArray readDroneVideoData() = 0;
+
+    ConnParams connParams = {0};
+    time_t lastConnectionStart = 0;
+    time_t lastHeartbeatSent = 0;
+    time_t lastFlyCmdSent = 0;
+    FlyCmd flyCmd;
+};
 
 #endif // PROTOCOL_H
