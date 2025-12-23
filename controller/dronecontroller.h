@@ -38,6 +38,7 @@ public slots:
     bool sendSwitchCamBack();
 
 signals:
+    void textMsgRecv(const QByteArray &txtMsg);
     void ackRecv(const Ack &ack);
     void connStatusRecv(ConnStatus_t connStatus);
     void errorOccurred(const QString &err);
@@ -56,7 +57,9 @@ private:
     QSerialPort port;
     Packet lastPacket;
     Ack lastAck;
-    QByteArray droneVideoData;
+    QMap<PacketType_t, QByteArray> bufferMap = {
+        {PacketType_TextMsg,{}}, {PacketType_DroneVideo,{}}
+    };
     Decoder decoder;
 };
 

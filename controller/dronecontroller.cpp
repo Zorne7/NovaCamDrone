@@ -27,7 +27,9 @@ bool DroneController::setPort(const QString &portName)
         port.close();
         lastPacket = Packet();
         lastAck = Ack();
-        droneVideoData.clear();
+        for(auto &b : bufferMap){
+            b.clear();
+        }
     }
     if (portName.isEmpty()) {
         return true;
@@ -165,15 +167,20 @@ void DroneController::processData()
         parseDroneTlm(packet.data.droneTlm);
         break;
 
+    case PacketType_TextMsg:
     case PacketType_DroneVideo: {
-        const QByteArray crcData = droneVideoData.right(sizeof(crc_t));
-        const crc_t crc = *reinterpret_cast<const crc_t *>(crcData.data());
-        if(calculate_crc(droneVideoData.data(), droneVideoData.size() - sizeof(crc_t)) == crc) {
-            decoder.decodeVideoData(droneVideoData);
-        }else{
-            emit errorOccurred("Invalid video data read from port: crc error");
+        const QByteArray data(bufferMap[packet.type].data(), bufferMap[packet.type].size() - sizeof(crc_t));
+        const QByteArray crc = bufferMap[packet.type].right(sizeof(crc_t));
+        bufferMap[packet.type].clear();
+        if(calculate_crc(data.data(), data.size()) != *(const crc_t *)crc.data()) {
+            emit errorOccurred("Invalid data read from port: crc error");
+            break;
         }
-        droneVideoData.clear();
+        if(packet.type == PacketType_DroneVideo){
+            decoder.decodeVideoData(data);
+        } else {
+            emit textMsgRecv(data);
+        }
         break;
     }
     default:
@@ -204,20 +211,20 @@ void DroneController::readPort()
             bytes -= r;
         }
 
-        if(lastPacket.type == PacketType_DroneVideo){
-            const int size = MIN(bytes, lastPacket.data.droneVideoSize - droneVideoData.size());
+        if(bufferMap.contains(lastPacket.type)){
+            const int size = MIN(bytes, lastPacket.data.dataSize - bufferMap[lastPacket.type].size());
             if (size > 0) {
                 const QByteArray data = port.read(size);
                 if (data.size() != size) {
-                    emit errorOccurred("Error reading video data from port");
+                    emit errorOccurred("Error reading data from port");
                     resetPort();
                     break;
                 }
-                droneVideoData.push_back(data);
+                bufferMap[lastPacket.type].push_back(data);
             }
         }
 
-        if (lastPacket.type != PacketType_DroneVideo || droneVideoData.size() >= lastPacket.data.droneVideoSize) {
+        if (!bufferMap.contains(lastPacket.type) || bufferMap[lastPacket.type].size() >= lastPacket.data.dataSize) {
             processData();
         }
     }

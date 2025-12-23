@@ -15,6 +15,7 @@ MainWindow::MainWindow(QWidget *parent)
     refreshAvailablePorts();
 
     connect(&droneCtrl, &DroneController::errorOccurred, this, &MainWindow::onErrOccurred);
+    connect(&droneCtrl, &DroneController::textMsgRecv, ui->log, &QTextEdit::append);
     connect(&droneCtrl, &DroneController::ackRecv, this, &MainWindow::onAckRecv);
     connect(&droneCtrl, &DroneController::connStatusRecv, this, &MainWindow::onConnStatusRecv);
     connect(&droneCtrl, &DroneController::frameReady, this, &MainWindow::onFrameReady);

@@ -185,11 +185,10 @@ union PacketData {
     FlyControls controls;
     bool videoEnabled;
     // Telemetry
-    uint16_t textMsgSize;
+    uint16_t dataSize;
     Ack ack;
     ConnStatus_t connStatus;
     DroneTlm droneTlm;
-    uint16_t droneVideoSize;
 };
 
 struct Packet {
@@ -463,7 +462,7 @@ public:
             return false;
         }
         videoData.push_back(calculate_crc(videoData.data(), videoData.size()));
-        const Packet tlmPkt = Packet(PacketType_DroneVideo, {.droneVideoSize = (uint16_t)videoData.size()});
+        const Packet tlmPkt = Packet(PacketType_DroneVideo, {.dataSize = (uint16_t)videoData.size()});
         return sendTlmPacket(tlmPkt) && sendTlmPacketData(videoData);
     }
 
