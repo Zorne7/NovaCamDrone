@@ -44,7 +44,7 @@ public:
 private:
   template <typename T>
   static inline int data_available(T &port) {
-    if constexpr (is_same_v<T, WiFiUDP>) {
+    if constexpr (std::is_same_v<std::decay_t<T>, WiFiUDP>) {
       return port.parsePacket();
     } else {
       return port.available();
