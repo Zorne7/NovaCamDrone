@@ -2,7 +2,7 @@
 
 Complete system for controlling the Nova Cam drone using an ESP32 and C++/Python.
 
-## 📐 Architettura
+## 📐 Architecture
 
 ```
 ┌──────────────┐    USB Serial      ┌──────────┐   WiFi UDP/TCP   ┌──────────┐
@@ -13,10 +13,10 @@ Complete system for controlling the Nova Cam drone using an ESP32 and C++/Python
 
 ## 🎯 Features
 
-✅ **ESP32 WiFi USB-Serial Bridge** - Transparent connection to the drone
-✅ **C++/Python Controller** - Full API for flight control and video processing
-✅ **Automatic Heartbeat** - Keeps the connection alive
-✅ **Flight Commands** - Full movement control
+✅ **ESP32 WiFi USB-Serial Bridge** - Transparent connection to the drone  
+✅ **C++/Python Controller** - Full API for flight control and video processing  
+✅ **Automatic Heartbeat** - Keeps the connection alive  
+✅ **Flight Commands** - Full movement control  
 ✅ **Interactive Mode** - Real‑time control
 
 ## 🚀 Quick Start
@@ -74,14 +74,14 @@ drone/
 
 ### Flight Command (9 bytes)
 
-```
-[0x03] [0x66] [H] [V] [T] [R] [F] [C] [0x99]
-```
-| 	Byte   	| Description   					|
-| --------- | ---------------------------------	|
-|	H 		| Horizontal (1–255, 128 = neutral)	|
-|	V 		| Vertical   (1–255, 128 = neutral)	|
-|	T 		| Throttle   (1–255, 128 = hover)	|
-|	R 		| Rotation   (1–255, 128 = neutral)	|
-|	F 		| Mode/action flags					|
-|	C 		| CRC = H ^ V ^ T ^ R ^ F			|
+| 	Byte   			| Description   																								|
+| -----------------	| -------------------------------------------------------------------------------------------------------------	|
+| Header 			| [0x03]																										|
+| Start				| [0x66]																										|
+| Horizontal 		| [1–255] (128 = neutral)																						|
+| Vertical 			| [1–255] (128 = neutral)																						|
+| Throttle 			| [1–255] (128 = hover)																							|
+| Rotation 			| [1–255] (128 = neutral)																						|
+| Mode/action flags | 0:FastFly, 1:FastDrop, 2:EmergencyStop, 3:CircleTurnEnd, 4:NoHeadMode, 5:Unlock, 6:Unknown, 7:GyroCorrection	|
+| CRC 				| CRC = Horizontal^Vertical^Throttle^Rotation^Flags																|
+| End				| [0x99]																										|
