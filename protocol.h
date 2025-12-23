@@ -444,6 +444,17 @@ public:
         return true;
     }
 
+    bool log(const string &msg) {
+        if(msg.empty()){
+            return false;
+        }
+        const ByteArray crc = toBytes(calculate_crc(msg.data(), msg.size()));
+        ByteArray txt((const uint8_t *)msg.c_str(), (const uint8_t *)msg.c_str() + msg.size());
+        txt.insert(txt.end(), crc.begin(), crc.end());
+        const Packet tlmPkt = Packet(PacketType_TextMsg, {.dataSize = (uint16_t)txt.size()});
+        return sendTlmPacket(tlmPkt) && sendTlmPacketData(txt);
+    }
+
     bool forwardConnStatus() {
         return sendTlmPacket(Packet(PacketType_ConnectionStat, {.connStatus = connectionStatus()}));
     }
