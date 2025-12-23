@@ -153,10 +153,6 @@ enum ConnStatus {
     UNKNOWN_STATUS = 200, // Internal use only
 };
 
-struct DroneVideo {
-    uint16_t dataSize;
-};
-
 typedef uint8_t PacketType_t;
 enum PacketType {
     PacketType_Invalid = 0x00,
@@ -167,6 +163,7 @@ enum PacketType {
     PacketType_SetControls,
     PacketType_SetVideo,
     // Telemetry
+    PacketType_TextMsg,
     PacketType_Ack,
     PacketType_ConnectionStat,
     PacketType_DroneTlm,
@@ -188,10 +185,11 @@ union PacketData {
     FlyControls controls;
     bool videoEnabled;
     // Telemetry
+    uint16_t textMsgSize;
     Ack ack;
     ConnStatus_t connStatus;
     DroneTlm droneTlm;
-    DroneVideo droneVideo;
+    uint16_t droneVideoSize;
 };
 
 struct Packet {
@@ -465,7 +463,7 @@ public:
             return false;
         }
         videoData.push_back(calculate_crc(videoData.data(), videoData.size()));
-        const Packet tlmPkt = Packet(PacketType_DroneVideo, {.droneVideo = {.dataSize = (uint16_t)videoData.size()}});
+        const Packet tlmPkt = Packet(PacketType_DroneVideo, {.droneVideoSize = (uint16_t)videoData.size()});
         return sendTlmPacket(tlmPkt) && sendTlmPacketData(videoData);
     }
 

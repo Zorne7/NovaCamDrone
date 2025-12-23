@@ -205,7 +205,7 @@ void DroneController::readPort()
         }
 
         if(lastPacket.type == PacketType_DroneVideo){
-            const int size = MIN(bytes, lastPacket.data.droneVideo.dataSize - droneVideoData.size());
+            const int size = MIN(bytes, lastPacket.data.droneVideoSize - droneVideoData.size());
             if (size > 0) {
                 const QByteArray data = port.read(size);
                 if (data.size() != size) {
@@ -217,7 +217,7 @@ void DroneController::readPort()
             }
         }
 
-        if (lastPacket.type != PacketType_DroneVideo || droneVideoData.size() >= lastPacket.data.droneVideo.dataSize) {
+        if (lastPacket.type != PacketType_DroneVideo || droneVideoData.size() >= lastPacket.data.droneVideoSize) {
             processData();
         }
     }
