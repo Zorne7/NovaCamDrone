@@ -198,6 +198,7 @@ void DroneController::readPort()
             }
             if (!lastPacket.checkCrc()) {
                 emit errorOccurred("Invalid packet read from port: crc error");
+                resetPort();
                 break;
             }
             bytes -= r;
