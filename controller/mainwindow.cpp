@@ -134,7 +134,7 @@ void MainWindow::sendSetConnection()
 {
     ConnParams connParams{};
     strncpy(connParams.ssid, ui->ssidEdit->text().toUtf8().data(), sizeof(connParams.ssid));
-    connParams.timeout = ui->connTimeoutEdit->text().toUInt();
+    connParams.timeout = ui->connTimeout->value();
     droneCtrl.sendSetConnection(connParams);
 }
 
