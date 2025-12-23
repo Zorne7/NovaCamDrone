@@ -1,86 +1,87 @@
 # 🚁 Drone Nova Cam - ESP32 Bridge Controller
 
-Sistema completo per comandare il drone Nova Cam tramite ESP32 e Python.
+Complete system for controlling the Nova Cam drone using an ESP32 and C++/Python.
 
 ## 📐 Architettura
 
 ```
-┌──────────────┐    USB Serial      ┌──────────┐    WiFi UDP      ┌──────────┐
+┌──────────────┐    USB Serial      ┌──────────┐   WiFi UDP/TCP   ┌──────────┐
 │   Computer   │ ←────────────────→ │  ESP32   │ ←──────────────→ │  Drone   │
 │ (C++/Python) │  configurable baud │  Bridge  │  192.168.1.1     │ Nova Cam │
 └──────────────┘                    └──────────┘                  └──────────┘
 ```
 
-## 🎯 Caratteristiche
+## 🎯 Features
 
-✅ **ESP32 Bridge WiFi-Serial** - Connessione trasparente al drone  
-✅ **Controller C++/Python** - API completa per controllo volo e video processing  
-✅ **Heartbeat Automatico** - Mantiene connessione attiva  
-✅ **Comandi Volo** - Movimento completo  
-✅ **Modalità Interattiva** - Controllo in tempo reale
+✅ **ESP32 WiFi USB-Serial Bridge** - Transparent connection to the drone
+✅ **C++/Python Controller** - Full API for flight control and video processing
+✅ **Automatic Heartbeat** - Keeps the connection alive
+✅ **Flight Commands** - Full movement control
+✅ **Interactive Mode** - Real‑time control
 
 ## 🚀 Quick Start
 
 ### 1. Hardware
 
--   ESP32 DevKit (qualsiasi modello con WiFi)
--   Cavo USB
+-   ESP32 (any model with WiFi)
+-   USB cable (Type-C → Type-A)
 -   Drone Nova Cam
 
 ### 2. Software
 
--	Configura BRIDGE_BITRATE in protocol.h per selezionare il baudrate
+-	Configure BRIDGE_BITRATE in protocol.h to select the baud rate
 
 #### 2.1 Software ESP32
 ```bash
-# Con Arduino IDE
-1. Apri esp32_bridge/esp32_bridge.ino
-3. Upload → ESP32
+# With Arduino IDE
+1. Open esp32_bridge/esp32_bridge.ino
+2. Upload → ESP32
 ```
 
 #### 2.2 Software PC
 ```bash
-# Con Qt (6.7.2 - MinGW 64bit)
-1. Apri controller/CMakeLists.txt
-3. Build → Run
+# With Qt (6.7.2 - MinGW 64bit)
+1. Open controller/CMakeLists.txt
+2. Build → Run
 ```
 
-## 📂 Struttura Progetto
+## 📂 Project Structure
 
 ```
-drone-1/
+drone/
 ├── esp32_bridge/
-│   ├── esp32_bridge.ino    # Firmware ESP32 (Arduino)
-│   └── platformio.ini      # Config PlatformIO
+│   ├── esp32_bridge.ino    	# Firmware ESP32 (Arduino)
+│   └── platformio.ini      	# Config PlatformIO
 │
 ├── controller/
-│   └── sorgenti C++/Python # Applicazione PC con GUI
+│   └── sources (C++/Python)	# PC application with GUI
 │
-├── fly-nova_cam/           # Codice APK decompilato (analisi)
+├── fly-nova_cam/           	# APK and its decompiled code (analysis)
 │
-└── protocol.h           	# Header contenente il protocollo e le strutture usate
+└── protocol.h           		# Header containing protocol and data structures
 ```
 
-## 📡 Protocollo Comandi
+## 📡 Comand Protocol
 
-### Comandi Base (2 byte)
+### Basic Commands (2 bytes)
 
-| Comando   | Codice     | Descrizione         		|
+| Command   | Code	     | Description         		|
 | --------- | ---------- | ------------------------ |
-| Heartbeat | `{1, 1}`   | Keepalive (ogni 1s) 		|
-| Stop      | `{8, 1}`   | Stop controllo      		|
+| Heartbeat | `{1, 1}`   | Keepalive 	 			|
+| Stop      | `{8, 1}`   | Stop control      		|
 | Camera    | `{6, 1/2}` | Switch camera front/back |
-| Ack       | `{9, 1/2}` | Ack foto/video      		|
+| Ack       | `{9, 1/2}` | Ack photo/video    		|
 
-### Comandi Volo (9 byte)
+### Flight Command (9 bytes)
 
 ```
-[0x03] [0x66] [H] [V] [T] [R] [FLAGS] [CRC] [0x99]
-
-H = Horizontal (1-255, 128=neutro)
-V = Vertical (1-255, 128=neutro)
-T = Throttle (1-255, 128=hover)
-R = Rotation (1-255, 128=neutro)
-FLAGS = Flag modalità/azioni
-CRC = H ^ V ^ T ^ R ^ FLAGS
+[0x03] [0x66] [H] [V] [T] [R] [F] [C] [0x99]
 ```
+| 	Byte   	| Description   					|
+| --------- | ---------------------------------	|
+|	H 		| Horizontal (1–255, 128 = neutral)	|
+|	V 		| Vertical   (1–255, 128 = neutral)	|
+|	T 		| Throttle   (1–255, 128 = hover)	|
+|	R 		| Rotation   (1–255, 128 = neutral)	|
+|	F 		| Mode/action flags					|
+|	C 		| CRC = H ^ V ^ T ^ R ^ F			|
