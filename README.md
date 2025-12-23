@@ -7,16 +7,16 @@ Sistema completo per comandare il drone Nova Cam tramite ESP32 e Python.
 ```
 ┌──────────────┐    USB Serial      ┌──────────┐    WiFi UDP      ┌──────────┐
 │   Computer   │ ←────────────────→ │  ESP32   │ ←──────────────→ │  Drone   │
-│ (C++/Python) │   921600 baud      │  Bridge  │  192.168.1.1     │ Nova Cam │
+│ (C++/Python) │  configurable baud │  Bridge  │  192.168.1.1     │ Nova Cam │
 └──────────────┘                    └──────────┘                  └──────────┘
 ```
 
 ## 🎯 Caratteristiche
 
 ✅ **ESP32 Bridge WiFi-Serial** - Connessione trasparente al drone  
-✅ **Controller C++/Python** - API completa per controllo volo  
+✅ **Controller C++/Python** - API completa per controllo volo e video processing  
 ✅ **Heartbeat Automatico** - Mantiene connessione attiva  
-✅ **Comandi Volo** - Movimento completo 6DOF  
+✅ **Comandi Volo** - Movimento completo  
 ✅ **Modalità Interattiva** - Controllo in tempo reale
 
 ## 🚀 Quick Start
@@ -27,12 +27,22 @@ Sistema completo per comandare il drone Nova Cam tramite ESP32 e Python.
 -   Cavo USB
 -   Drone Nova Cam
 
-### 2. Software ESP32
+### 2. Software
 
+-	Configura BRIDGE_BITRATE in protocol.h per selezionare il baudrate
+
+#### 2.1 Software ESP32
 ```bash
 # Con Arduino IDE
 1. Apri esp32_bridge/esp32_bridge.ino
 3. Upload → ESP32
+```
+
+#### 2.2 Software PC
+```bash
+# Con Qt (6.7.2 - MinGW 64bit)
+1. Apri controller/CMakeLists.txt
+3. Build → Run
 ```
 
 ## 📂 Struttura Progetto
@@ -44,7 +54,7 @@ drone-1/
 │   └── platformio.ini      # Config PlatformIO
 │
 ├── controller/
-│   └── sorgenti C++/Python
+│   └── sorgenti C++/Python # Applicazione PC con GUI
 │
 ├── fly-nova_cam/           # Codice APK decompilato (analisi)
 │
@@ -65,12 +75,12 @@ drone-1/
 ### Comandi Volo (9 byte)
 
 ```
-[3][102][H][V][T][R][MODE/ACTION][CRC][153]
+[0x03] [0x66] [H] [V] [T] [R] [FLAGS] [CRC] [0x99]
 
 H = Horizontal (1-255, 128=neutro)
 V = Vertical (1-255, 128=neutro)
 T = Throttle (1-255, 128=hover)
 R = Rotation (1-255, 128=neutro)
-MODE = Flag modalità/azioni
-CRC = H ^ V ^ T ^ R ^ MODE
+FLAGS = Flag modalità/azioni
+CRC = H ^ V ^ T ^ R ^ FLAGS
 ```
