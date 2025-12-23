@@ -178,14 +178,19 @@ void MainWindow::onErrOccurred(const QString &err)
 
 void MainWindow::onAckRecv(const Ack &ack)
 {
-    if (ack.val == 0 || ui->debugCheck->isChecked()) {
-        ui->log->append(QString("Ack: Cmd = %1, Val = %2").arg(hex(ack.cmd)).arg(ack.val));
+    static const QMetaEnum e = QMetaEnum::fromType<AckVal>();
+    if (ack.val != AckVal_OK || ui->debugCheck->isChecked()) {
+        QString val = e.valueToKey(ack.val);
+        if(val.isEmpty()){
+            val = hex(ack.val);
+        }
+        ui->log->append(QString("Ack: Cmd = %1, Val = %2").arg(hex(ack.cmd)).arg(val));
     }
 }
 
 void MainWindow::onConnStatusRecv(ConnStatus_t connStatus)
 {
-    const QMetaEnum e = QMetaEnum::fromType<ConnStatus>();
+    static const QMetaEnum e = QMetaEnum::fromType<ConnStatus>();
     QString status = e.valueToKey(connStatus);
     if(status.isEmpty()){
         status = e.valueToKey(UNKNOWN_STATUS);
