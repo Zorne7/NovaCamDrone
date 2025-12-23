@@ -1,6 +1,6 @@
 # 🚁 Drone Nova Cam - ESP32 Bridge Controller
 
-Complete system for controlling the Nova Cam drone using an ESP32 and C++/Python.
+Complete system for controlling the **Nova Cam drone** using an ESP32 and C++/Python.
 
 ## 📐 Architecture
 
@@ -29,7 +29,7 @@ Complete system for controlling the Nova Cam drone using an ESP32 and C++/Python
 
 ### 2. Software
 
--	Configure BRIDGE_BITRATE in protocol.h to select the baud rate
+-	Configure **BRIDGE_BITRATE** in **protocol.h** to select the baud rate
 
 #### 2.1 Software ESP32
 ```bash
@@ -83,5 +83,5 @@ drone/
 | Throttle 			| [1–255] (128 = hover)																							|
 | Rotation 			| [1–255] (128 = neutral)																						|
 | Mode/action flags | 0:FastFly, 1:FastDrop, 2:EmergencyStop, 3:CircleTurnEnd, 4:NoHeadMode, 5:Unlock, 6:Unknown, 7:GyroCorrection	|
-| CRC 				| CRC = Horizontal^Vertical^Throttle^Rotation^Flags																|
+| CRC 				| CRC = Horizontal ^ Vertical ^ Throttle ^ Rotation ^ Flags														|
 | End				| [0x99]																										|
