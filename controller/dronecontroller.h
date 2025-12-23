@@ -4,7 +4,6 @@
 #include <QMap>
 #include <QObject>
 #include <QSerialPort>
-#include <QTimer>
 
 #include "../protocol.h"
 #include "decoder.h"
@@ -14,47 +13,41 @@ class DroneController : public QObject
     Q_OBJECT
 public:
     explicit DroneController(QObject *parent = nullptr);
-
-    FlyControls* getFlyControls() { return &flyControls; }
-    bool setSerial(const QString &portName, int baudRate);
-    bool setVideo(bool enabled);
+    bool setSerial(const QString &portName);
+    AckVal_t waitAck(int timeout_ms);
 
 public slots:
-    void resetSerial();
+    bool resetSerial();
 
-    void sendSetConnection(const ConnParams &connParams);
-    void sendGetConnection();
-    void setHeartbeat();
-    void setFlyCmd();
-    void sendStopControl();
-    void sendSwitchCamFront();
-    void sendSwitchCamBack();
-    void sendHeartbeat();
-    void sendFlyCmd();
-    void sendAckPhoto();
-    void sendAckVideo();
+    bool sendSetConnection(const ConnParams &connParams);
+    bool sendGetConnection();
+    bool sendHeartbeat();
+    bool sendFlyControls(const FlyControls &flyControls);
+    bool sendStopControl();
+    bool sendSetVideo(bool enabled);
+    bool sendSwitchCamFront();
+    bool sendSwitchCamBack();
 
 signals:
     void ackRecv(const Ack &ack);
-    void connStatusRecv(status_t status);
+    void connStatusRecv(ConnStatus_t connStatus);
     void errorOccurred(const QString &err);
     void frameReady(const QByteArray &frameData);
-    void rtspResponseRecv();
+
+private slots:
+    void readSerial();
+    bool sendAckPhoto();
+    bool sendAckVideo();
 
 private:
-    bool sendCmd(const BridgePacketId &id, const QByteArray &data = QByteArray());
-    void readSerial();
-    bool waitRtspResponse(int timeout_ms);
-    void parseDroneTlm(const QByteArray &tlmData);
+    bool sendCmd(const Packet &cmd);
+    void parseDroneTlm(const DroneTlm &tlm);
     void processData();
 
     QSerialPort serial;
-    QTimer timerHb;
-    QTimer timerFly;
-    FlyControls flyControls;
-    BridgePacketHeader lastHeader;
-    QMap<ProtocolChannel_t, QByteArray> channelBuffMap;
-    RTSP rtsp;
+    Packet lastPacket;
+    Ack lastAck;
+    QByteArray droneVideoData;
     Decoder decoder;
 };
 

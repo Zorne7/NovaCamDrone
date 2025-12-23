@@ -13,7 +13,7 @@ using namespace std;
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
 
-// DRONE CONFIG
+// CONNECTION CONFIG
 #define DRONE_WIFI_PREFIX "NOVA CAM DRONE-"
 #define DRONE_PASSW ""
 #define DRONE_IP "192.168.1.1"
@@ -35,8 +35,7 @@ using namespace std;
 // TIMING CONFIG
 #define HB_INTERVAL_MS 1000
 #define FLY_INTERVAL_MS 50
-#define RTSP_KEEPALIVE_INTERVAL_MS 5000
-#define RTSP_RESP_TIMEOUT_MS 1000
+#define BRIDGE_BITRATE 921600
 
 // TYPES
 typedef uint8_t fly_par_t;
@@ -279,11 +278,11 @@ enum PacketType {
 };
 
 typedef uint8_t AckVal_t;
-enum AckVal { AckVal_KO = 0, AckVal_CrcErr, AckVal_OK };
+enum AckVal { AckVal_Tiemout = 0, AckVal_OK, AckVal_KO, AckVal_CrcErr };
 struct Ack
 {
-    PacketType_t cmd;
-    AckVal_t val;
+    PacketType_t cmd = PacketType_Invalid;
+    AckVal_t val = AckVal_Tiemout;
 };
 
 union PacketData {

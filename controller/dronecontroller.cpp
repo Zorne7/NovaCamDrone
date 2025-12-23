@@ -2,28 +2,11 @@
 
 #include <QDebug>
 #include <QEventLoop>
-
-template<typename T>
-static inline const QByteArray toData(const T &s, int size = -1)
-{
-    if constexpr (std::is_same_v<T, string>) {
-        return QByteArray::fromStdString(s);
-    } else {
-        return QByteArray(reinterpret_cast<const char *>(&s), size < 0 ? sizeof(s) : size);
-    }
-}
+#include <QTimer>
 
 DroneController::DroneController(QObject *parent)
     : QObject{parent}
 {
-    timerHb.setInterval(HB_INTERVAL_MS);
-    timerHb.setSingleShot(false);
-    connect(&timerHb, &QTimer::timeout, this, &DroneController::sendHeartbeat);
-
-    timerFly.setInterval(FLY_INTERVAL_MS);
-    timerFly.setSingleShot(false);
-    connect(&timerFly, &QTimer::timeout, this, &DroneController::sendFlyCmd);
-
     connect(&serial, &QSerialPort::readyRead, this, &DroneController::readSerial);
     connect(&serial, &QSerialPort::errorOccurred, this, [=](QSerialPort::SerialPortError error) {
         if (error != QSerialPort::NoError) {
@@ -37,140 +20,116 @@ DroneController::DroneController(QObject *parent)
     decoder.init();
 }
 
-bool DroneController::setSerial(const QString &portName, int baudRate)
+bool DroneController::setSerial(const QString &portName)
 {
     if (serial.isOpen()) {
         serial.close();
+        lastPacket = Packet();
+        lastAck = Ack();
+        droneVideoData.clear();
     }
-    if (baudRate <= 0 || portName.isEmpty()) {
+    if (portName.isEmpty()) {
         return true;
     }
     serial.setPortName(portName);
-    serial.setBaudRate(baudRate);
+    serial.setBaudRate(BRIDGE_BITRATE);
     return serial.open(QIODevice::ReadWrite);
 }
 
-void DroneController::resetSerial()
+bool DroneController::resetSerial()
 {
-    serial.close();
-    lastHeader = BridgePacketHeader();
-    bool ok = serial.open(QIODevice::ReadWrite);
+    const QString portName = serial.portName();
+    bool ok = setSerial(portName);
     if (!ok) {
-        emit errorOccurred("Error resetting serial");
+        emit errorOccurred("Error resetting serial " + portName);
     }
+    return ok;
 }
 
-bool DroneController::sendCmd(const BridgePacketId &id, const QByteArray &data)
+bool DroneController::sendCmd(const Packet &cmd)
 {
+    lastAck = Ack();
     if (!serial.isOpen()) {
-        emit errorOccurred("Error sending cmd " + hex(id.val) + ": serial closed");
+        emit errorOccurred("Error sending cmd " + hex(cmd.type) + ": serial closed");
         return false;
     }
-    const BridgePacketHeader header(id, data.size());
-    const QByteArray cmdData = toData(header) + data;
-    bool ok = serial.write(cmdData) == cmdData.size();
+    bool ok = serial.write(reinterpret_cast<const char *>(&cmd), sizeof(cmd)) == sizeof(cmd);
     if (ok) {
         serial.flush();
     } else {
-        emit errorOccurred("Error sending cmd " + hex(id.val) + " [" + QString::number(data.size())
-                           + "]: " + data.toHex());
+        emit errorOccurred("Error sending cmd " + hex(cmd.type) + ": write error");
     }
     return ok;
 }
 
-void DroneController::sendSetConnection(const ConnParams &connParams)
+AckVal_t DroneController::waitAck(int timeout_ms)
 {
-    sendCmd(BridgePacketId(PacketType_SetConnection), toData(connParams));
-}
-
-void DroneController::sendGetConnection()
-{
-    sendCmd(BridgePacketId(PacketType_GetConnection));
-}
-
-void DroneController::setHeartbeat()
-{
-    if (timerHb.isActive()) {
-        timerHb.stop();
-    } else {
-        timerHb.start();
+    if (lastAck.cmd != PacketType_Invalid) {
+        return true;
     }
+    QEventLoop loop;
+    QTimer timer;
+    QObject::connect(&timer, &QTimer::timeout, &loop, &QEventLoop::quit);
+    QObject::connect(this, &DroneController::ackRecv, &loop, &QEventLoop::quit);
+    QObject::connect(this, &DroneController::errorOccurred, &loop, &QEventLoop::quit);
+    timer.start(timeout_ms);
+    loop.exec();
+    return lastAck.val;
 }
 
-void DroneController::sendHeartbeat()
+bool DroneController::sendSetConnection(const ConnParams &connParams)
 {
-    sendCmd(BridgePacketId(PacketType_Forward, Channel_Ctrl_UDP), toData(DroneCmd_HEARTBEAT));
+    return sendCmd(Packet(PacketType_SetConnection, {.connParams = connParams}));
 }
 
-void DroneController::setFlyCmd()
+bool DroneController::sendGetConnection()
 {
-    if (timerFly.isActive()) {
-        timerFly.stop();
-    } else {
-        timerFly.start();
-    }
+    return sendCmd(Packet(PacketType_GetConnection));
 }
 
-void DroneController::sendFlyCmd()
+bool DroneController::sendHeartbeat()
 {
-    sendCmd(BridgePacketId(PacketType_Forward, Channel_Ctrl_UDP), toData(FlyCmd(flyControls)));
+    return sendCmd(Packet(PacketType_DroneCmd, {.droneCmd = DroneCmd_HEARTBEAT}));
 }
 
-bool DroneController::setVideo(bool enabled)
+bool DroneController::sendFlyControls(const FlyControls &flyControls)
 {
-    static const BridgePacketId id = BridgePacketId(PacketType_Forward, Channel_RTSP_TCP);
-    bool ok;
-    if (enabled) {
-        ok = sendCmd(id, toData(rtsp.options())) && waitRtspResponse(RTSP_RESP_TIMEOUT_MS)
-             && RTSP::respOk(rtsp.readResponse()) && sendCmd(id, toData(rtsp.describe()))
-             && waitRtspResponse(RTSP_RESP_TIMEOUT_MS) && RTSP::respOk(rtsp.readResponse())
-             && sendCmd(id, toData(rtsp.setup())) && waitRtspResponse(RTSP_RESP_TIMEOUT_MS);
-        if (ok) {
-            const string resp = rtsp.readResponse();
-            rtsp.sessionId = RTSP::respOk(resp) ? toData(RTSP::getField(resp, "Session")) : "";
-            ok = !rtsp.sessionId.empty() && sendCmd(id, toData(rtsp.play()))
-                 && waitRtspResponse(RTSP_RESP_TIMEOUT_MS) && RTSP::respOk(rtsp.readResponse());
-        }
-    } else {
-        ok = sendCmd(id, toData(rtsp.stop())) && waitRtspResponse(RTSP_RESP_TIMEOUT_MS)
-             && RTSP::respOk(rtsp.readResponse());
-    }
-
-    return ok;
+    return sendCmd(Packet(PacketType_SetControls, {.controls = flyControls}));
 }
 
-void DroneController::sendStopControl()
+bool DroneController::sendStopControl()
 {
-    sendCmd(BridgePacketId(PacketType_Forward, Channel_Ctrl_UDP), toData(DroneCmd_STOP_CONTROL));
+    return sendCmd(Packet(PacketType_DroneCmd, {.droneCmd = DroneCmd_STOP_CONTROL}));
 }
 
-void DroneController::sendSwitchCamFront()
+bool DroneController::sendSetVideo(bool enabled)
 {
-    sendCmd(BridgePacketId(PacketType_Forward, Channel_Ctrl_UDP), toData(DroneCmd_SWITCH_CAM_FRONT));
+    return sendCmd(Packet(PacketType_SetVideo, {.videoEnabled = enabled}));
 }
 
-void DroneController::sendSwitchCamBack()
+bool DroneController::sendSwitchCamFront()
 {
-    sendCmd(BridgePacketId(PacketType_Forward, Channel_Ctrl_UDP), toData(DroneCmd_SWITCH_CAM_BACK));
+    return sendCmd(Packet(PacketType_DroneCmd, {.droneCmd = DroneCmd_SWITCH_CAM_FRONT}));
 }
 
-void DroneController::sendAckPhoto()
+bool DroneController::sendSwitchCamBack()
 {
-    sendCmd(BridgePacketId(PacketType_Forward, Channel_Ctrl_UDP), toData(DroneCmd_ACK_PHOTO));
+    return sendCmd(Packet(PacketType_DroneCmd, {.droneCmd = DroneCmd_SWITCH_CAM_BACK}));
 }
 
-void DroneController::sendAckVideo()
+bool DroneController::sendAckPhoto()
 {
-    sendCmd(BridgePacketId(PacketType_Forward, Channel_Ctrl_UDP), toData(DroneCmd_ACK_VIDEO));
+    return sendCmd(Packet(PacketType_DroneCmd, {.droneCmd = DroneCmd_ACK_PHOTO}));
 }
 
-void DroneController::parseDroneTlm(const QByteArray &tlmData)
+bool DroneController::sendAckVideo()
 {
-    if (tlmData.size() < sizeof(DroneTlm)) {
-        return;
-    }
-    const DroneTlm *tlm = reinterpret_cast<const DroneTlm *>(tlmData.data());
-    switch (tlm->fdbkType) {
+    return sendCmd(Packet(PacketType_DroneCmd, {.droneCmd = DroneCmd_ACK_VIDEO}));
+}
+
+void DroneController::parseDroneTlm(const DroneTlm &tlm)
+{
+    switch (tlm.fdbkType) {
     case FdbkType_Photo:
         sendAckPhoto(); // TODO: send ack only if necessary
         break;
@@ -180,68 +139,40 @@ void DroneController::parseDroneTlm(const QByteArray &tlmData)
     default:
         break;
     }
-    if (tlmData.size() > sizeof(DroneTlm)) {
-        // qDebug() << "TLM:" << tlmData.mid(sizeof(DroneTlm)).toHex();
-    }
 }
 
 void DroneController::processData()
 {
-    const BridgePacketId packetId = lastHeader.id;
-    const QByteArray payload = channelBuffMap.take(packetId.chan());
-    lastHeader = BridgePacketHeader();
+    const Packet packet = lastPacket;
+    lastPacket = Packet();
 
-    switch (packetId.type()) {
-    case PacketType_Ack: {
-        if (payload.size() != sizeof(Ack)) {
-            emit errorOccurred("Invalid payload of Ack received");
-            break;
+    switch (packet.type) {
+    case PacketType_Ack:
+        lastAck = packet.data.ack;
+        emit ackRecv(lastAck);
+        break;
+
+    case PacketType_ConnectionStat:
+        emit connStatusRecv(packet.data.connStatus);
+        break;
+
+    case PacketType_DroneTlm:
+        parseDroneTlm(packet.data.droneTlm);
+        break;
+
+    case PacketType_DroneVideo: {
+        const QByteArray crcData = droneVideoData.right(sizeof(crc_t));
+        const crc_t crc = *reinterpret_cast<const crc_t *>(crcData.data());
+        if(calculate_crc(droneVideoData.data(), droneVideoData.size() - sizeof(crc_t)) == crc) {
+            decoder.decodeVideoData(droneVideoData);
+        }else{
+            emit errorOccurred("Invalid video data read from serial: crc error");
         }
-        const Ack *ack = reinterpret_cast<const Ack *>(payload.data());
-        emit ackRecv(*ack);
+        droneVideoData.clear();
         break;
     }
-
-    case PacketType_ConnectionStat: {
-        if (payload.size() != sizeof(status_t)) {
-            emit errorOccurred("Invalid payload of ConnectionStatus received");
-            break;
-        }
-        const status_t *status = reinterpret_cast<const status_t *>(payload.data());
-        emit connStatusRecv(*status);
-        break;
-    }
-
-    case PacketType_Forward: {
-        switch (packetId.chan()) {
-        case Channel_Ctrl_UDP:
-            parseDroneTlm(payload);
-            break;
-        case Channel_RTSP_TCP: {
-            rtsp.buff.append(payload.toStdString());
-            bool available = false;
-            rtsp.firstPacketSize(&available);
-            if (available) {
-                emit rtspResponseRecv();
-            }
-            break;
-        }
-        case Channel_RTP_UDP:
-            decoder.decodeVideoData(payload);
-            break;
-        case Channel_RTCP_UDP:
-            // ignore
-            break;
-        default:
-            emit errorOccurred("Unknown channel type: " + hex(packetId.chan()));
-            resetSerial();
-            break;
-        }
-        break;
-    }
-
     default:
-        emit errorOccurred("Unknown packet type: " + hex(packetId.type()));
+        emit errorOccurred("Unknown packet type: " + hex(packet.type));
         resetSerial();
         break;
     }
@@ -249,51 +180,41 @@ void DroneController::processData()
 
 void DroneController::readSerial()
 {
-    for (int bytesAvailable = serial.bytesAvailable(); bytesAvailable > 0;
-         bytesAvailable = serial.bytesAvailable()) {
-        if (lastHeader.id.type() == PacketType_Invalid) {
-            if (bytesAvailable < sizeof(lastHeader)) {
+    for (int bytes = serial.bytesAvailable(); bytes > 0; bytes = serial.bytesAvailable()) {
+
+        if (lastPacket.type == PacketType_Invalid) {
+            if (bytes < sizeof(lastPacket)) {
                 break;
             }
-            int r = serial.read(reinterpret_cast<char *>(&lastHeader), sizeof(lastHeader));
-            if (r < sizeof(lastHeader)) {
-                emit errorOccurred("Error reading packet header from serial");
+            int r = serial.read(reinterpret_cast<char *>(&lastPacket), sizeof(lastPacket));
+            if (r < sizeof(lastPacket)) {
+                emit errorOccurred("Error reading packet from serial");
                 resetSerial();
                 break;
             }
-            bytesAvailable -= r;
-        }
-
-        const ProtocolChannel_t chan = lastHeader.id.chan();
-        const int size = MIN(bytesAvailable, lastHeader.dataSize - channelBuffMap[chan].size());
-        if (size > 0) {
-            const QByteArray data = serial.read(size);
-            if (data.size() < size) {
-                emit errorOccurred("Error reading packet payload from serial");
+            if (!lastPacket.checkCrc()) {
+                emit errorOccurred("Invalid packet read from serial: crc error");
                 resetSerial();
                 break;
             }
-            channelBuffMap[chan].push_back(data);
+            bytes -= r;
         }
 
-        if (channelBuffMap[chan].size() >= lastHeader.dataSize) {
+        if(lastPacket.type == PacketType_DroneVideo){
+            const int size = MIN(bytes, lastPacket.data.droneVideo.dataSize - droneVideoData.size());
+            if (size > 0) {
+                const QByteArray data = serial.read(size);
+                if (data.size() != size) {
+                    emit errorOccurred("Error reading video data from serial");
+                    resetSerial();
+                    break;
+                }
+                droneVideoData.push_back(data);
+            }
+        }
+
+        if (lastPacket.type != PacketType_DroneVideo || droneVideoData.size() >= lastPacket.data.droneVideo.dataSize) {
             processData();
         }
     }
-}
-
-bool DroneController::waitRtspResponse(int timeout_ms)
-{
-    bool available;
-    rtsp.firstPacketSize(&available);
-    if (available) {
-        return true;
-    }
-    QEventLoop loop;
-    QTimer timer;
-    QObject::connect(&timer, &QTimer::timeout, &loop, &QEventLoop::quit);
-    QObject::connect(this, &DroneController::rtspResponseRecv, &loop, &QEventLoop::quit);
-    timer.start(timeout_ms);
-    loop.exec();
-    return timer.isActive();
 }

@@ -23,19 +23,22 @@ public:
     ~MainWindow();
 
 private slots:
-    void refreshAvailableSerialPorts();
+    void refreshAvailablePorts();
     void setSerial();
     void initCurrentValues();
     void sendSetConnection();
     void setVideo();
 
+    void updateFlyCtrlPar(fly_par_t &par, int newVal, QLineEdit *line);
+    void updateFlyCtrlFlag(FlyControlFlags flag, bool enable);
     void onAckRecv(const Ack &ack);
-    void onConnStatusRecv(status_t connStatus);
+    void onConnStatusRecv(ConnStatus_t connStatus);
     void onFrameReady(const QByteArray &frameData);
 
 private:
     Ui::MainWindow *ui;
     DroneController droneCtrl;
+    FlyControls flyCtrls;
 };
 
 #endif // MAINWINDOW_H

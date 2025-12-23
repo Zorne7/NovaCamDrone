@@ -6,14 +6,13 @@
 
 // ===== CONFIG =====
 #define LOOP_DELAY  1
-#define SERIAL_BAUD 921600
 
 // ===== TYPES =====
 class Bridge : public BridgeInterface {
 public:
 
   void init() override {
-    Serial.begin(SERIAL_BAUD);
+    Serial.begin(BRIDGE_BITRATE);
     WiFi.mode(WIFI_STA);
     WiFi.setAutoReconnect(false);
     tft.init();
@@ -24,7 +23,7 @@ public:
     tft.setTextSize(2);
     tft.setCursor(10, 10);
     tft.print("Drone Bridge: rate  ");
-    tft.print(SERIAL_BAUD);
+    tft.print(BRIDGE_BITRATE);
   }
 
   ConnStatus_t connectionStatus() const override { return WiFi.status(); }
