@@ -29,16 +29,16 @@ public:
   ConnStatus_t connectionStatus() const override { return WiFi.status(); }
 
   void disconnectFromDrone() override {    
-    rtsp.stop();
-    rtp.stop();
+    videoRtsp.stop();
+    videoRtp.stop();
     ctrl.stop();
     WiFi.disconnect(true);
   }
 
   void start() override {    
     ctrl.begin(DRONE_CTRL_PORT);
-    rtsp.connect(DRONE_IP, DRONE_VIDEO_PORT);
-    rtp.begin(DRONE_RTP_PORT);
+    videoRtsp.connect(DRONE_IP, DRONE_VIDEO_PORT);
+    videoRtp.begin(DRONE_RTP_PORT);
   }
 
 private:
@@ -70,7 +70,10 @@ private:
 
   time_t currentTime() const override { return millis(); };
 
+  void wait_ms(time_t ms) override { delay(ms); }
+
   void startConnection(const string &ssid, const string &passw) override { WiFi.begin(ssid.c_str(), passw.c_str()); };
+
   const ByteArray readCmdPacketData() override {
     ByteArray pktData;
     if(data_available(Serial) >= sizeof(Packet)){
@@ -83,22 +86,29 @@ private:
     return pktData;
   }
 
-  virtual bool sendTlmPacketData(const ByteArray &tlmData) override { return send_to(Serial, tlmData); };
+  bool sendTlmPacketData(const ByteArray &tlmData) override { return send_to(Serial, tlmData); };
 
-  virtual bool sendDroneCmdData(const ByteArray &cmdData) override {
+  bool sendDroneCmdData(const ByteArray &cmdData) override {
     ctrl.beginPacket(DRONE_IP, DRONE_CTRL_PORT);
     bool ok = send_to(ctrl, cmdData);
     ctrl.endPacket();
     return ok;
   };
 
-  virtual const ByteArray readDroneTlmData() override { return read_from(ctrl); };
+  const ByteArray readDroneTlmData() override { return read_from(ctrl); };
 
-  virtual const ByteArray readDroneVideoData() override { return read_from(rtp); };
+  const ByteArray readDroneVideoData() override { return read_from(videoRtp); };
+
+  bool sendDroneVideoCmd(const string &cmd) override { return send_to(videoRtsp, ByteArray(cmd.begin(), cmd.end())); }
+
+  const string readDroneVideoResp() override {
+    const ByteArray resp = read_from(videoRtsp);
+    return string((const char *)resp.data(), resp.size());
+  }
 
   WiFiUDP ctrl;
-  WiFiClient rtsp;
-  WiFiUDP rtp;
+  WiFiClient videoRtsp;
+  WiFiUDP videoRtp;
   TFT_eSPI tft = TFT_eSPI();
 };
 

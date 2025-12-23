@@ -33,9 +33,10 @@ using namespace std;
 #define RTSP_CLIENT_PORTS STR(DRONE_RTP_PORT) "-" STR(DRONE_RTCP_PORT)
 
 // TIMING CONFIG
+#define BRIDGE_BITRATE 2000000
 #define HB_INTERVAL_MS 1000
 #define FLY_INTERVAL_MS 50
-#define BRIDGE_BITRATE 2000000
+#define RTSP_RESP_TIMEOUT_MS 3000
 
 // TYPES
 typedef uint8_t fly_par_t;
@@ -44,111 +45,6 @@ typedef uint16_t port_t;
 typedef vector<uint8_t> ByteArray;
 typedef uint8_t crc_t;
 static crc_t calculate_crc(const void *data, size_t len);
-
-struct RTSP
-{
-    int cseq = 1;
-    string sessionId = "";
-    string buff;
-
-    static inline bool respOk(const string &resp)
-    {
-        return resp.rfind("RTSP/" RTSP_VER " 200 OK", 0) == 0;
-    }
-
-    static inline const string getField(const string &resp, const string &field, bool trim = true)
-    {
-        const string fieldStr = field + ":";
-        const size_t idx = resp.find(fieldStr);
-        if (idx == string::npos) {
-            return "";
-        }
-        const size_t start = idx + fieldStr.length();
-        const size_t end = resp.find(RTSP_END_PAR, start);
-        string value = (end == string::npos) ? resp.substr(start) : resp.substr(start, end - start);
-        if (trim) {
-            const size_t first = value.find_first_not_of(" \t");
-            const size_t last = value.find_last_not_of(" \t");
-            value = (first == string::npos) ? "" : value.substr(first, last - first + 1);
-        }
-        return value;
-    }
-
-    inline size_t firstPacketSize(bool *available = nullptr) const
-    {
-        const size_t headerEnd = buff.find(RTSP_END_SECTION);
-        if (headerEnd == string::npos) {
-            return 0; // incomplete header
-        }
-
-        const string header = buff.substr(0, headerEnd);
-        size_t contentLen = 0;
-        try {
-            const string lenStr = getField(header, "Content-Length");
-            if (!lenStr.empty()) {
-                contentLen = stoul(lenStr);
-            }
-        } catch (...) {
-            contentLen = 0; // fallback
-        }
-
-        const size_t totSize = headerEnd + string(RTSP_END_SECTION).size()
-                               + (contentLen > 0 ? contentLen : 0);
-        if (available) {
-            *available = buff.size() >= totSize;
-        }
-        return totSize;
-    }
-
-    inline const string readResponse()
-    {
-        bool available = false;
-        const size_t firstPackSize = firstPacketSize(&available);
-        if (!available) {
-            return string(); // incomplete response
-        }
-        const string resp = buff.substr(0, firstPackSize);
-        buff = buff.substr(firstPackSize, buff.size() - firstPackSize); // remove response read
-        return resp;
-    }
-
-    // packets
-    inline const string options()
-    {
-        return "OPTIONS " DRONE_CAM " RTSP/" RTSP_VER RTSP_END_PAR "CSeq: " + to_string(cseq++)
-               + RTSP_END_PAR "User-Agent: " RTSP_USER_AGENT RTSP_END_SECTION;
-    }
-
-    inline const string describe()
-    {
-        return "DESCRIBE " DRONE_CAM " RTSP/" RTSP_VER RTSP_END_PAR
-               "Accept: application/sdp" RTSP_END_PAR "CSeq: "
-               + to_string(cseq++) + RTSP_END_PAR "User-Agent: " RTSP_USER_AGENT RTSP_END_SECTION;
-    }
-
-    inline const string setup()
-    {
-        return "SETUP " DRONE_CAM "/track0 RTSP/" RTSP_VER RTSP_END_PAR
-               "Transport: RTP/AVP/UDP;unicast;client_port=" RTSP_CLIENT_PORTS RTSP_END_PAR "CSeq: "
-               + to_string(cseq++) + RTSP_END_PAR "User-Agent: " RTSP_USER_AGENT RTSP_END_SECTION;
-    }
-
-    inline const string play()
-    {
-        return "PLAY " DRONE_CAM "/ RTSP/" RTSP_VER RTSP_END_PAR "Range: npt=0.000-" RTSP_END_PAR
-               "CSeq: "
-               + to_string(cseq++)
-               + RTSP_END_PAR "User-Agent: " RTSP_USER_AGENT RTSP_END_PAR "Session: " + sessionId
-               + RTSP_END_SECTION;
-    }
-
-    inline const string stop()
-    {
-        return "TEARDOWN " DRONE_CAM " RTSP/" RTSP_VER RTSP_END_PAR "CSeq: " + to_string(cseq++)
-               + RTSP_END_PAR "User-Agent: " RTSP_USER_AGENT RTSP_END_PAR "Session: " + sessionId
-               + RTSP_END_SECTION;
-    }
-};
 
 // PROTOCOL STRUCTURES DEFINITION
 #pragma pack(push, 1)
@@ -195,10 +91,10 @@ struct FlyCmd
     crc_t crc = calculate_crc(&flyControls, sizeof(flyControls));
     const uint8_t end = 0x99;
 
-    inline void setControls(const FlyControls &controls)
+    inline void setControls(const FlyControls &controls, fly_par_t turnDeadZone = DEF_FLY_TURN_DEAD_ZONE)
     {
         flyControls = controls;
-        flyControls.normalize();
+        flyControls.normalize(turnDeadZone);
         crc = calculate_crc(&flyControls, sizeof(flyControls));
     }
 };
@@ -349,6 +245,111 @@ static inline void Flag_Set(T &flags, F flag, bool en)
 }
 
 // COMMON INTERFACES
+struct RTSP
+{
+    int cseq = 1;
+    string sessionId = "";
+    string buff;
+
+    static inline bool respOk(const string &resp)
+    {
+        return resp.rfind("RTSP/" RTSP_VER " 200 OK", 0) == 0;
+    }
+
+    static inline const string getField(const string &resp, const string &field, bool trim = true)
+    {
+        const string fieldStr = field + ":";
+        const size_t idx = resp.find(fieldStr);
+        if (idx == string::npos) {
+            return "";
+        }
+        const size_t start = idx + fieldStr.length();
+        const size_t end = resp.find(RTSP_END_PAR, start);
+        string value = (end == string::npos) ? resp.substr(start) : resp.substr(start, end - start);
+        if (trim) {
+            const size_t first = value.find_first_not_of(" \t");
+            const size_t last = value.find_last_not_of(" \t");
+            value = (first == string::npos) ? "" : value.substr(first, last - first + 1);
+        }
+        return value;
+    }
+
+    inline size_t firstPacketSize(bool *available = nullptr) const
+    {
+        const size_t headerEnd = buff.find(RTSP_END_SECTION);
+        if (headerEnd == string::npos) {
+            return 0; // incomplete header
+        }
+
+        const string header = buff.substr(0, headerEnd);
+        size_t contentLen = 0;
+        try {
+            const string lenStr = getField(header, "Content-Length");
+            if (!lenStr.empty()) {
+                contentLen = stoul(lenStr);
+            }
+        } catch (...) {
+            contentLen = 0; // fallback
+        }
+
+        const size_t totSize = headerEnd + string(RTSP_END_SECTION).size()
+                               + (contentLen > 0 ? contentLen : 0);
+        if (available) {
+            *available = buff.size() >= totSize;
+        }
+        return totSize;
+    }
+
+    inline const string readResponse()
+    {
+        bool available = false;
+        const size_t firstPackSize = firstPacketSize(&available);
+        if (!available) {
+            return string(); // incomplete response
+        }
+        const string resp = buff.substr(0, firstPackSize);
+        buff = buff.substr(firstPackSize, buff.size() - firstPackSize); // remove response read
+        return resp;
+    }
+
+    // packets
+    inline const string options()
+    {
+        return "OPTIONS " DRONE_CAM " RTSP/" RTSP_VER RTSP_END_PAR "CSeq: " + to_string(cseq++)
+        + RTSP_END_PAR "User-Agent: " RTSP_USER_AGENT RTSP_END_SECTION;
+    }
+
+    inline const string describe()
+    {
+        return "DESCRIBE " DRONE_CAM " RTSP/" RTSP_VER RTSP_END_PAR
+               "Accept: application/sdp" RTSP_END_PAR "CSeq: "
+               + to_string(cseq++) + RTSP_END_PAR "User-Agent: " RTSP_USER_AGENT RTSP_END_SECTION;
+    }
+
+    inline const string setup()
+    {
+        return "SETUP " DRONE_CAM "/track0 RTSP/" RTSP_VER RTSP_END_PAR
+               "Transport: RTP/AVP/UDP;unicast;client_port=" RTSP_CLIENT_PORTS RTSP_END_PAR "CSeq: "
+               + to_string(cseq++) + RTSP_END_PAR "User-Agent: " RTSP_USER_AGENT RTSP_END_SECTION;
+    }
+
+    inline const string play()
+    {
+        return "PLAY " DRONE_CAM "/ RTSP/" RTSP_VER RTSP_END_PAR "Range: npt=0.000-" RTSP_END_PAR
+               "CSeq: "
+               + to_string(cseq++)
+               + RTSP_END_PAR "User-Agent: " RTSP_USER_AGENT RTSP_END_PAR "Session: " + sessionId
+               + RTSP_END_SECTION;
+    }
+
+    inline const string stop()
+    {
+        return "TEARDOWN " DRONE_CAM " RTSP/" RTSP_VER RTSP_END_PAR "CSeq: " + to_string(cseq++)
+        + RTSP_END_PAR "User-Agent: " RTSP_USER_AGENT RTSP_END_PAR "Session: " + sessionId
+            + RTSP_END_SECTION;
+    }
+};
+
 class BridgeInterface {
 public:
 
@@ -423,7 +424,17 @@ public:
             break;
 
         case PacketType_SetVideo:
-            // TODO: to implement
+            if (cmdPkt.data.videoEnabled) {
+                ok = RTSP::respOk(sendDroneVideoCmd(rtsp.options(), RTSP_RESP_TIMEOUT_MS))
+                     && RTSP::respOk(sendDroneVideoCmd(rtsp.describe(), RTSP_RESP_TIMEOUT_MS));
+                if (ok) {
+                    const string resp = sendDroneVideoCmd(rtsp.setup(), RTSP_RESP_TIMEOUT_MS);
+                    rtsp.sessionId = RTSP::respOk(resp) ? RTSP::getField(resp, "Session") : "";
+                    ok = !rtsp.sessionId.empty() && RTSP::respOk(sendDroneVideoCmd(rtsp.play(), RTSP_RESP_TIMEOUT_MS));
+                }
+            } else {
+                ok = RTSP::respOk(sendDroneVideoCmd(rtsp.stop(), RTSP_RESP_TIMEOUT_MS));
+            }
             break;
 
         default:
@@ -474,19 +485,37 @@ protected:
 
     bool readDroneTlm(DroneTlm *droneTlm) { return droneTlm->fromBytes(readDroneTlmData()); }
 
+    const string sendDroneVideoCmd(const string &cmd, int timeout_ms) {
+        if(!sendDroneVideoCmd(cmd)){
+            return string();
+        }
+        bool available = false;
+        const time_t now = currentTime();
+        do {
+            wait_ms(1);
+            rtsp.buff += readDroneVideoResp();
+            rtsp.firstPacketSize(&available);
+        } while(!available && currentTime() - now < timeout_ms);
+        return rtsp.readResponse();
+    }
+
     virtual time_t currentTime() const = 0;
+    virtual void wait_ms(time_t ms) = 0;
     virtual void startConnection(const string &ssid, const string &passw) = 0;
     virtual const ByteArray readCmdPacketData() = 0;
     virtual bool sendTlmPacketData(const ByteArray &tlmData) = 0;
     virtual bool sendDroneCmdData(const ByteArray &cmdData) = 0;
     virtual const ByteArray readDroneTlmData() = 0;
     virtual const ByteArray readDroneVideoData() = 0;
+    virtual bool sendDroneVideoCmd(const string &cmd) = 0;
+    virtual const string readDroneVideoResp() = 0;
 
     ConnParams connParams = {0};
     time_t lastConnectionStart = 0;
     time_t lastHeartbeatSent = 0;
     time_t lastFlyCmdSent = 0;
     FlyCmd flyCmd;
+    RTSP rtsp;
 };
 
 #endif // PROTOCOL_H
