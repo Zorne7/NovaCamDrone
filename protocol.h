@@ -35,7 +35,7 @@ using namespace std;
 // TIMING CONFIG
 #define HB_INTERVAL_MS 1000
 #define FLY_INTERVAL_MS 50
-#define BRIDGE_BITRATE 921600
+#define BRIDGE_BITRATE 2000000
 
 // TYPES
 typedef uint8_t fly_par_t;
@@ -238,8 +238,8 @@ struct DroneTlm
 
 struct ConnParams
 {
-    ssid_t ssid;
-    uint16_t timeout;
+    ssid_t ssid = "";
+    uint16_t timeout = 0;
     inline bool valid() const { return ssid[0] != 0 && timeout > 0; }
 };
 

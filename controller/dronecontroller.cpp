@@ -10,7 +10,8 @@ DroneController::DroneController(QObject *parent)
     connect(&port, &QSerialPort::readyRead, this, &DroneController::readPort);
     connect(&port, &QSerialPort::errorOccurred, this, [=](QSerialPort::SerialPortError error) {
         if (error != QSerialPort::NoError) {
-            emit errorOccurred(port.errorString());
+            port.close();
+            emit errorOccurred("Port error: " + port.errorString());
         }
     });
 
@@ -33,7 +34,11 @@ bool DroneController::setPort(const QString &portName)
     }
     port.setPortName(portName);
     port.setBaudRate(BRIDGE_BITRATE);
-    return port.open(QIODevice::ReadWrite);
+    bool ok = port.open(QIODevice::ReadWrite);
+    if (ok) {
+        port.readAll(); // discard all pending data
+    }
+    return ok;
 }
 
 bool DroneController::resetPort()
@@ -173,7 +178,6 @@ void DroneController::processData()
     }
     default:
         emit errorOccurred("Unknown packet type: " + hex(packet.type));
-        resetPort();
         break;
     }
 }
@@ -194,7 +198,6 @@ void DroneController::readPort()
             }
             if (!lastPacket.checkCrc()) {
                 emit errorOccurred("Invalid packet read from port: crc error");
-                resetPort();
                 break;
             }
             bytes -= r;

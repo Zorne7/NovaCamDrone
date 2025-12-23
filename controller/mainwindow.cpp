@@ -72,6 +72,9 @@ MainWindow::MainWindow(QWidget *parent)
 
 MainWindow::~MainWindow()
 {
+    if(droneCtrl.portOpened()){
+        droneCtrl.sendSetConnection(ConnParams());
+    }
     delete ui;
 }
 
@@ -96,6 +99,7 @@ void MainWindow::setPort()
     if (ok && portName.isEmpty()) {
         ui->log->append("Port closed");
         ui->btnRefresh->setEnabled(true);
+        ui->connStatusEdit->clear();
         return;
     }
     if (!ok) {
@@ -168,7 +172,7 @@ void MainWindow::onErrOccurred(const QString &err)
 {
     ui->log->append(err);
     if(!droneCtrl.portOpened()){
-        ui->connStatusEdit->clear();
+        ui->portSelector->setCurrentIndex(0);
     }
 }
 
