@@ -4,6 +4,7 @@
 #include <QLineEdit>
 #include <QVBoxLayout>
 #include <QWidget>
+#include <QMetaEnum>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -180,7 +181,12 @@ void MainWindow::onAckRecv(const Ack &ack)
 
 void MainWindow::onConnStatusRecv(ConnStatus_t connStatus)
 {
-    ui->connStatusEdit->setText(QString::number(connStatus));
+    const QMetaEnum e = QMetaEnum::fromType<ConnStatus>();
+    QString status = e.valueToKey(connStatus);
+    if(status.isEmpty()){
+        status = e.valueToKey(UNKNOWN_STATUS);
+    }
+    ui->connStatusEdit->setText(status);
 }
 
 void MainWindow::onFrameReady(const QByteArray &frameData)

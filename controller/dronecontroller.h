@@ -5,8 +5,14 @@
 #include <QObject>
 #include <QSerialPort>
 
+namespace Protocol {
+Q_NAMESPACE
 #include "../protocol.h"
+Q_ENUM_NS(ConnStatus);
+};
 #include "decoder.h"
+
+using namespace Protocol;
 
 class DroneController : public QObject
 {
