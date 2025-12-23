@@ -461,7 +461,8 @@ public:
         if(videoData.empty()){
             return false;
         }
-        videoData.push_back(calculate_crc(videoData.data(), videoData.size()));
+        const ByteArray crc = toBytes(calculate_crc(videoData.data(), videoData.size()));
+        videoData.insert(videoData.end(), crc.begin(), crc.end());
         const Packet tlmPkt = Packet(PacketType_DroneVideo, {.dataSize = (uint16_t)videoData.size()});
         return sendTlmPacket(tlmPkt) && sendTlmPacketData(videoData);
     }
