@@ -7,10 +7,10 @@
 DroneController::DroneController(QObject *parent)
     : QObject{parent}
 {
-    connect(&serial, &QSerialPort::readyRead, this, &DroneController::readSerial);
-    connect(&serial, &QSerialPort::errorOccurred, this, [=](QSerialPort::SerialPortError error) {
+    connect(&port, &QSerialPort::readyRead, this, &DroneController::readPort);
+    connect(&port, &QSerialPort::errorOccurred, this, [=](QSerialPort::SerialPortError error) {
         if (error != QSerialPort::NoError) {
-            emit errorOccurred(serial.errorString());
+            emit errorOccurred(port.errorString());
         }
     });
 
@@ -20,10 +20,10 @@ DroneController::DroneController(QObject *parent)
     decoder.init();
 }
 
-bool DroneController::setSerial(const QString &portName)
+bool DroneController::setPort(const QString &portName)
 {
-    if (serial.isOpen()) {
-        serial.close();
+    if (port.isOpen()) {
+        port.close();
         lastPacket = Packet();
         lastAck = Ack();
         droneVideoData.clear();
@@ -31,17 +31,17 @@ bool DroneController::setSerial(const QString &portName)
     if (portName.isEmpty()) {
         return true;
     }
-    serial.setPortName(portName);
-    serial.setBaudRate(BRIDGE_BITRATE);
-    return serial.open(QIODevice::ReadWrite);
+    port.setPortName(portName);
+    port.setBaudRate(BRIDGE_BITRATE);
+    return port.open(QIODevice::ReadWrite);
 }
 
-bool DroneController::resetSerial()
+bool DroneController::resetPort()
 {
-    const QString portName = serial.portName();
-    bool ok = setSerial(portName);
+    const QString portName = port.portName();
+    bool ok = setPort(portName);
     if (!ok) {
-        emit errorOccurred("Error resetting serial " + portName);
+        emit errorOccurred("Error resetting port " + portName);
     }
     return ok;
 }
@@ -49,13 +49,13 @@ bool DroneController::resetSerial()
 bool DroneController::sendCmd(const Packet &cmd)
 {
     lastAck = Ack();
-    if (!serial.isOpen()) {
-        emit errorOccurred("Error sending cmd " + hex(cmd.type) + ": serial closed");
+    if (!port.isOpen()) {
+        emit errorOccurred("Error sending cmd " + hex(cmd.type) + ": port closed");
         return false;
     }
-    bool ok = serial.write(reinterpret_cast<const char *>(&cmd), sizeof(cmd)) == sizeof(cmd);
+    bool ok = port.write(reinterpret_cast<const char *>(&cmd), sizeof(cmd)) == sizeof(cmd);
     if (ok) {
-        serial.flush();
+        port.flush();
     } else {
         emit errorOccurred("Error sending cmd " + hex(cmd.type) + ": write error");
     }
@@ -166,35 +166,35 @@ void DroneController::processData()
         if(calculate_crc(droneVideoData.data(), droneVideoData.size() - sizeof(crc_t)) == crc) {
             decoder.decodeVideoData(droneVideoData);
         }else{
-            emit errorOccurred("Invalid video data read from serial: crc error");
+            emit errorOccurred("Invalid video data read from port: crc error");
         }
         droneVideoData.clear();
         break;
     }
     default:
         emit errorOccurred("Unknown packet type: " + hex(packet.type));
-        resetSerial();
+        resetPort();
         break;
     }
 }
 
-void DroneController::readSerial()
+void DroneController::readPort()
 {
-    for (int bytes = serial.bytesAvailable(); bytes > 0; bytes = serial.bytesAvailable()) {
+    for (int bytes = port.bytesAvailable(); bytes > 0; bytes = port.bytesAvailable()) {
 
         if (lastPacket.type == PacketType_Invalid) {
             if (bytes < sizeof(lastPacket)) {
                 break;
             }
-            int r = serial.read(reinterpret_cast<char *>(&lastPacket), sizeof(lastPacket));
+            int r = port.read(reinterpret_cast<char *>(&lastPacket), sizeof(lastPacket));
             if (r < sizeof(lastPacket)) {
-                emit errorOccurred("Error reading packet from serial");
-                resetSerial();
+                emit errorOccurred("Error reading packet from port");
+                resetPort();
                 break;
             }
             if (!lastPacket.checkCrc()) {
-                emit errorOccurred("Invalid packet read from serial: crc error");
-                resetSerial();
+                emit errorOccurred("Invalid packet read from port: crc error");
+                resetPort();
                 break;
             }
             bytes -= r;
@@ -203,10 +203,10 @@ void DroneController::readSerial()
         if(lastPacket.type == PacketType_DroneVideo){
             const int size = MIN(bytes, lastPacket.data.droneVideo.dataSize - droneVideoData.size());
             if (size > 0) {
-                const QByteArray data = serial.read(size);
+                const QByteArray data = port.read(size);
                 if (data.size() != size) {
-                    emit errorOccurred("Error reading video data from serial");
-                    resetSerial();
+                    emit errorOccurred("Error reading video data from port");
+                    resetPort();
                     break;
                 }
                 droneVideoData.push_back(data);

@@ -13,11 +13,12 @@ class DroneController : public QObject
     Q_OBJECT
 public:
     explicit DroneController(QObject *parent = nullptr);
-    bool setSerial(const QString &portName);
+    bool setPort(const QString &portName);
+    bool portOpened() const { return port.isOpen(); }
     AckVal_t waitAck(int timeout_ms);
 
 public slots:
-    bool resetSerial();
+    bool resetPort();
 
     bool sendSetConnection(const ConnParams &connParams);
     bool sendGetConnection();
@@ -35,7 +36,7 @@ signals:
     void frameReady(const QByteArray &frameData);
 
 private slots:
-    void readSerial();
+    void readPort();
     bool sendAckPhoto();
     bool sendAckVideo();
 
@@ -44,7 +45,7 @@ private:
     void parseDroneTlm(const DroneTlm &tlm);
     void processData();
 
-    QSerialPort serial;
+    QSerialPort port;
     Packet lastPacket;
     Ack lastAck;
     QByteArray droneVideoData;

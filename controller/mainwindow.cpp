@@ -13,7 +13,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     refreshAvailablePorts();
 
-    connect(&droneCtrl, &DroneController::errorOccurred, ui->log, &QTextEdit::append);
+    connect(&droneCtrl, &DroneController::errorOccurred, this, &MainWindow::onErrOccurred);
     connect(&droneCtrl, &DroneController::ackRecv, this, &MainWindow::onAckRecv);
     connect(&droneCtrl, &DroneController::connStatusRecv, this, &MainWindow::onConnStatusRecv);
     connect(&droneCtrl, &DroneController::frameReady, this, &MainWindow::onFrameReady);
@@ -76,7 +76,7 @@ MainWindow::~MainWindow()
 
 void MainWindow::refreshAvailablePorts()
 {
-    disconnect(ui->portSelector, &QComboBox::currentTextChanged, this, &MainWindow::setSerial);
+    disconnect(ui->portSelector, &QComboBox::currentTextChanged, this, &MainWindow::setPort);
 
     ui->portSelector->clear();
     ui->portSelector->addItem("");
@@ -84,26 +84,27 @@ void MainWindow::refreshAvailablePorts()
         ui->portSelector->addItem(info.portName());
     }
 
-    connect(ui->portSelector, &QComboBox::currentTextChanged, this, &MainWindow::setSerial);
+    connect(ui->portSelector, &QComboBox::currentTextChanged, this, &MainWindow::setPort);
 }
 
-void MainWindow::setSerial()
+void MainWindow::setPort()
 {
     const QString portName = ui->portSelector->currentText();
 
-    const bool ok = droneCtrl.setSerial(portName);
+    const bool ok = droneCtrl.setPort(portName);
     if (ok && portName.isEmpty()) {
-        ui->log->append("Serial closed");
+        ui->log->append("Port closed");
         ui->btnRefresh->setEnabled(true);
         return;
     }
     if (!ok) {
-        ui->log->append("Error setting serial " + portName);
+        ui->log->append("Error setting port " + portName);
         return;
     }
 
-    ui->log->append(QString("Serial %1 opened").arg(portName));
+    ui->log->append(QString("Port %1 opened").arg(portName));
     ui->btnRefresh->setEnabled(false);
+
     droneCtrl.sendGetConnection();
     droneCtrl.sendFlyControls(flyCtrls);
 }
@@ -111,13 +112,9 @@ void MainWindow::setSerial()
 void MainWindow::initCurrentValues()
 {
     ui->leftRightSlider->setValue(FLY_CONTROL_NEUTRAL);
-    ui->control1Line->setText(STR(FLY_CONTROL_NEUTRAL));
     ui->frontBackSlider->setValue(FLY_CONTROL_NEUTRAL);
-    ui->control2Line->setText(STR(FLY_CONTROL_NEUTRAL));
     ui->accelSlider->setValue(FLY_CONTROL_NEUTRAL);
-    ui->accellerLine->setText(STR(FLY_CONTROL_NEUTRAL));
     ui->turnSlider->setValue(FLY_CONTROL_NEUTRAL);
-    ui->turnLine->setText(STR(FLY_CONTROL_NEUTRAL));
     ui->fastFlyCheck->setChecked(false);
     ui->fastDropCheck->setChecked(false);
     ui->emergStopCheck->setChecked(false);
@@ -126,7 +123,6 @@ void MainWindow::initCurrentValues()
     ui->unlockCheck->setChecked(false);
     ui->unknownCheck->setChecked(false);
     ui->gyroCorrCheck->setChecked(false);
-    ui->flagsLine->setText(STR(0x00));
 }
 
 void MainWindow::sendSetConnection()
@@ -139,7 +135,7 @@ void MainWindow::sendSetConnection()
 
 void MainWindow::setVideo()
 {
-    bool ok = droneCtrl.sendSetVideo(ui->btnVideo->isChecked());
+    bool ok = droneCtrl.sendSetVideo(ui->btnVideo->isChecked()) && droneCtrl.waitAck(3000) == AckVal_OK;
     if(!ok){
         ui->btnVideo->setChecked(!ui->btnVideo->isChecked());
     }
@@ -147,12 +143,14 @@ void MainWindow::setVideo()
 
 void MainWindow::updateFlyCtrlPar(fly_par_t &par, int newVal, QLineEdit *line)
 {
+    line->setText(QString::number(newVal));
     if(par == newVal){
         return;
     }
     par = newVal;
-    line->setText(QString::number(par));
-    droneCtrl.sendFlyControls(flyCtrls);
+    if(droneCtrl.portOpened()){
+        droneCtrl.sendFlyControls(flyCtrls);
+    }
 }
 
 void MainWindow::updateFlyCtrlFlag(FlyControlFlags flag, bool enable)
@@ -160,8 +158,16 @@ void MainWindow::updateFlyCtrlFlag(FlyControlFlags flag, bool enable)
     FlyControlFlags_t flags = flyCtrls.flags;
     Flag_Set(flyCtrls.flags, ControlFlag_GyroCorrection, enable);
     ui->flagsLine->setText(hex(flyCtrls.flags));
-    if(flyCtrls.flags != flags) {
+    if(droneCtrl.portOpened() && flyCtrls.flags != flags) {
         droneCtrl.sendFlyControls(flyCtrls);
+    }
+}
+
+void MainWindow::onErrOccurred(const QString &err)
+{
+    ui->log->append(err);
+    if(!droneCtrl.portOpened()){
+        ui->connStatusEdit->clear();
     }
 }
 

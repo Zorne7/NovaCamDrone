@@ -24,13 +24,15 @@ public:
 
 private slots:
     void refreshAvailablePorts();
-    void setSerial();
+    void setPort();
     void initCurrentValues();
     void sendSetConnection();
     void setVideo();
 
     void updateFlyCtrlPar(fly_par_t &par, int newVal, QLineEdit *line);
     void updateFlyCtrlFlag(FlyControlFlags flag, bool enable);
+
+    void onErrOccurred(const QString &err);
     void onAckRecv(const Ack &ack);
     void onConnStatusRecv(ConnStatus_t connStatus);
     void onFrameReady(const QByteArray &frameData);
