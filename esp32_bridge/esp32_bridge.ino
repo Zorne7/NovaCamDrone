@@ -99,7 +99,10 @@ private:
 
   const ByteArray readDroneVideoData() override { return read_from(videoRtp); };
 
-  bool sendDroneVideoCmd(const string &cmd) override { return send_to(videoRtsp, ByteArray(cmd.begin(), cmd.end())); }
+  bool sendDroneVideoCmd(const string &cmd) override {
+    const ByteArray cmdData((const uint8_t *)cmd.data(), (const uint8_t *)cmd.data() + cmd.size()); 
+    return send_to(videoRtsp, cmdData); 
+  }
 
   const string readDroneVideoResp() override {
     const ByteArray resp = read_from(videoRtsp);
