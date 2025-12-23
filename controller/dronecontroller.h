@@ -9,6 +9,7 @@ namespace Protocol {
 Q_NAMESPACE
 #include "../protocol.h"
 Q_ENUM_NS(ConnStatus);
+Q_ENUM_NS(PacketType);
 Q_ENUM_NS(AckVal);
 };
 #include "decoder.h"

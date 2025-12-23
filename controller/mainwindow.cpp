@@ -178,13 +178,18 @@ void MainWindow::onErrOccurred(const QString &err)
 
 void MainWindow::onAckRecv(const Ack &ack)
 {
-    static const QMetaEnum e = QMetaEnum::fromType<AckVal>();
+    static const QMetaEnum pTypeEnum = QMetaEnum::fromType<PacketType>();
+    static const QMetaEnum ackEnum = QMetaEnum::fromType<AckVal>();
     if (ack.val != AckVal_OK || ui->debugCheck->isChecked()) {
-        QString val = e.valueToKey(ack.val);
+        QString cmd = pTypeEnum.valueToKey(ack.cmd);
+        if(cmd.isEmpty()){
+            cmd = hex(ack.cmd);
+        }
+        QString val = ackEnum.valueToKey(ack.val);
         if(val.isEmpty()){
             val = hex(ack.val);
         }
-        ui->log->append(QString("Ack: Cmd = %1, Val = %2").arg(hex(ack.cmd)).arg(val));
+        ui->log->append(QString("Ack: Cmd = %1, Val = %2").arg(cmd).arg(val));
     }
 }
 
