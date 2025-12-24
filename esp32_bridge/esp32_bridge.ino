@@ -7,7 +7,36 @@
 // ===== CONFIG =====
 #define LOOP_DELAY  1
 
-// ===== TYPES =====
+static inline const ByteArray read_UDP(WiFiUDP &udp)
+{
+  int packetSize = udp.parsePacket();
+  if (packetSize <= 0) {
+    return {};
+  }
+  ByteArray buff(packetSize);
+  int r = udp.read(buff.data(), packetSize);
+  if (r < 0) {
+    return {};
+  }
+  buff.resize(r);
+  return buff;
+}
+
+static inline const ByteArray read_TCP(WiFiClient &tcp)
+{
+  int available = tcp.available();
+  if (available <= 0) {
+    return {};
+  }
+  ByteArray buff(available);
+  int r = tcp.read(buff.data(), available);
+  if (r < 0) {
+    return {};
+  }
+  buff.resize(r);
+  return buff;
+}
+
 class Bridge : public BridgeInterface {
 public:
 
@@ -28,7 +57,7 @@ public:
 
   ConnStatus_t connectionStatus() const override { return WiFi.status(); }
 
-  void disconnectFromDrone() override {    
+  void disconnectFromDrone() override {
     videoRtsp.stop();
     videoRtp.stop();
     ctrl.stop();
@@ -42,70 +71,45 @@ public:
   }
 
 private:
-  template <typename T>
-  static inline int data_available(T &port) {
-    if constexpr (std::is_same_v<std::decay_t<T>, WiFiUDP>) {
-      return port.parsePacket();
-    } else {
-      return port.available();
-    }
-  }
-
-  template <typename T>
-  static inline const ByteArray read_from(T &port, int size = -1, bool *err = nullptr) {
-    const int dataSize = MAX(data_available(port), size);
-    ByteArray bytes(dataSize, 0);
-    if(dataSize > 0){
-      const int r = port.read(bytes.data(), dataSize);
-      if (err) *err = r != dataSize;
-      if(r != dataSize){
-        bytes.resize(MAX(r, 0));
-      }
-    }
-    return bytes;
-  }
-
-  template <typename T>
-  static inline bool send_to(T &port, const ByteArray &buff) { return port.write(buff.data(), buff.size()) == buff.size(); }
-
-  time_t currentTime() const override { return millis(); };
+  time_t currentTime() const override { return millis(); }
 
   void wait_ms(time_t ms) override { delay(ms); }
 
-  void startConnection(const string &ssid, const string &passw) override { WiFi.begin(ssid.c_str(), passw.c_str()); };
+  void startConnection(const string &ssid, const string &passw) override { WiFi.begin(ssid.c_str(), passw.c_str()); }
 
   const ByteArray readCmdPacketData() override {
-    ByteArray pktData;
-    if(data_available(Serial) >= sizeof(Packet)){
-      bool err;
-      pktData = read_from(Serial, sizeof(Packet), &err);
-      if(err){
-        pktData.clear(); 
-      }
+    if (Serial.available() < sizeof(Packet)) {
+      return {};
     }
-    return pktData;
+    ByteArray buff(sizeof(Packet));
+    int r = Serial.readBytes(buff.data(), sizeof(Packet));
+    if (r != sizeof(Packet)) {
+      return {};
+    }
+    return buff;
   }
 
-  bool sendTlmPacketData(const ByteArray &tlmData) override { return send_to(Serial, tlmData); };
+  bool sendTlmPacketData(const ByteArray &tlmData) override {
+    return Serial.write(tlmData.data(), tlmData.size()) == tlmData.size();
+  }
 
   bool sendDroneCmdData(const ByteArray &cmdData) override {
     ctrl.beginPacket(DRONE_IP, DRONE_CTRL_PORT);
-    bool ok = send_to(ctrl, cmdData);
+    bool ok = ctrl.write(cmdData.data(), cmdData.size()) == cmdData.size();
     ctrl.endPacket();
     return ok;
-  };
+  }
 
-  const ByteArray readDroneTlmData() override { return read_from(ctrl); };
+  const ByteArray readDroneTlmData() override { return read_UDP(ctrl); }
 
-  const ByteArray readDroneVideoData() override { return read_from(videoRtp); };
+  const ByteArray readDroneVideoData() override { return read_UDP(videoRtp); }
 
   bool sendDroneVideoCmd(const string &cmd) override {
-    const ByteArray cmdData((const uint8_t *)cmd.data(), (const uint8_t *)cmd.data() + cmd.size()); 
-    return send_to(videoRtsp, cmdData); 
+    return videoRtsp.write((const uint8_t*)cmd.data(), cmd.size()) == cmd.size();
   }
 
   const string readDroneVideoResp() override {
-    const ByteArray resp = read_from(videoRtsp);
+    const ByteArray resp = read_TCP(videoRtsp);
     return string((const char *)resp.data(), resp.size());
   }
 
@@ -129,21 +133,23 @@ void setup()
 void loop() 
 {
   const ConnStatus_t connStatus = bridge.connectionStatus();
+
   if (connStatus != CONNECTED) {
     bridge.connectToDrone();
   } else if (lastConnStatus != CONNECTED) {
     bridge.start();
   }
+
   if (connStatus != lastConnStatus) {
     bridge.forwardConnStatus();
   }
   lastConnStatus = connStatus;
 
-  while(bridge.parseCmdPacket()){};
-  if(connStatus == CONNECTED){
+  while (bridge.parseCmdPacket()) {};
+  if (connStatus == CONNECTED) {
     bridge.step();
-    while(bridge.forwardDroneTlm()){};
-    while(bridge.forwardDroneVideo()){};
+    while (bridge.forwardDroneTlm()) {};
+    while (bridge.forwardDroneVideo()) {};
   }
 
   if (LOOP_DELAY > 0) {
