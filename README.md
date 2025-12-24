@@ -33,7 +33,7 @@ Complete system for controlling the **Nova Cam drone** using an ESP32 and C++/Py
 
 #### 2.1 Software ESP32
 ```bash
-# With Arduino IDE
+# With Arduino IDE (Esp32 3.3.3 - WebSockets 2.7.1)
 1. Open esp32_bridge/esp32_bridge.ino
 2. Upload → ESP32
 ```
@@ -61,7 +61,9 @@ drone/
 └── protocol.h           		# Header containing protocol and data structures
 ```
 
-## 📡 Comand Protocol
+## 📡 Comands Protocol
+
+**All commands are sent through  UDP**
 
 ### Basic Commands (2 bytes)
 
@@ -72,7 +74,7 @@ drone/
 | Camera    | `{6, 1/2}` | Switch camera front/back |
 | Ack       | `{9, 1/2}` | Ack photo/video    		|
 
-### Flight Command (9 bytes)
+### Flight Commands (9 bytes)
 
 | 	Byte   			| Description   																								|
 | -----------------	| -------------------------------------------------------------------------------------------------------------	|
