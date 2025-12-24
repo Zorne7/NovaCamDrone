@@ -35,10 +35,10 @@ public:
     WiFi.disconnect(true);
   }
 
-  void start() override {    
+  void start() override {
     ctrl.begin(DRONE_CTRL_PORT);
-    videoRtsp.connect(DRONE_IP, DRONE_VIDEO_PORT);
     videoRtp.begin(DRONE_RTP_PORT);
+    videoRtsp.connect(DRONE_IP, DRONE_VIDEO_PORT);
   }
 
 private:
