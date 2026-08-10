@@ -14,7 +14,7 @@ Decoder::Decoder(QObject *parent)
 
 void Decoder::init()
 {
-    decoderProcess.start("python", QStringList() << "decoder.py");
+    decoderProcess.start("python3", QStringList() << "decoder.py");
 }
 
 void Decoder::close()
