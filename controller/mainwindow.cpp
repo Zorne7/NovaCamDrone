@@ -86,7 +86,9 @@ void MainWindow::refreshAvailablePorts()
     ui->portSelector->clear();
     ui->portSelector->addItem("");
     for (const QSerialPortInfo &info : QSerialPortInfo::availablePorts()) {
-        ui->portSelector->addItem(info.portName());
+        if(info.hasProductIdentifier()) {
+            ui->portSelector->addItem(info.portName());
+        }
     }
 
     connect(ui->portSelector, &QComboBox::currentTextChanged, this, &MainWindow::setPort);

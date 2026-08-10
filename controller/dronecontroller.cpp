@@ -10,7 +10,9 @@ DroneController::DroneController(QObject *parent)
     connect(&port, &QSerialPort::readyRead, this, &DroneController::readPort);
     connect(&port, &QSerialPort::errorOccurred, this, [=](QSerialPort::SerialPortError error) {
         if (error != QSerialPort::NoError) {
-            port.close();
+            if(port.isOpen()) {
+                port.close();
+            }
             emit errorOccurred("Port error: " + port.errorString());
         }
     });
