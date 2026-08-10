@@ -3,8 +3,10 @@ import sys
 import struct
 
 RTP_HEADER_SIZE = 12
-buffer = bytearray()
 expected_seq = None
+
+fu_buffer = bytearray()
+is_assembling_fu = False
 
 def log_error(msg):
     sys.stderr.write(msg + "\n")
@@ -22,98 +24,83 @@ def parse_rtp_header(packet):
     marker = (packet[1] >> 7) & 1
     return seq, marker
 
-# ------------------------------------------------------------
-#   CONVERSIONE HVCC → ANNEX-B (replica della funzione C)
-# ------------------------------------------------------------
+def process_rtp_hevc(payload):
+    global fu_buffer, is_assembling_fu
 
-def convert_hvcc_to_annexb(data):
-    """
-    Converte un blob HVCC-like (hvcC box) in un frame HEVC Annex-B.
-    Restituisce bytes pronti per il decoder.
-    """
-
-    if len(data) < 0x17:
-        log_error("HVCC metadata too small")
+    if len(payload) < 2:
+        log_error("Payload RTP troppo corto")
         return None
 
-    # NAL length size (1..4)
-    length_size = (data[0x15] & 3) + 1
-
-    num_arrays = data[0x16]
-    offset = 0x17
+    nal_type = (payload[0] >> 1) & 0x3F
 
     out = bytearray()
 
-    for _ in range(num_arrays):
-        if offset + 3 > len(data):
-            log_error("Invalid HVCC array header")
+    if nal_type == 49:
+        if len(payload) < 3:
             return None
+        
+        fu_header = payload[2]
+        s_bit = (fu_header >> 7) & 1 
+        e_bit = (fu_header >> 6) & 1 
+        fu_type = fu_header & 0x3F    
 
-        nal_type = data[offset] & 0x3F
-        num_nalus = (data[offset+1] << 8) | data[offset+2]
-        offset += 3
+        nal_header_1 = (fu_type << 1) | (payload[0] & 0x01)
+        nal_header_2 = payload[1]
 
-        for _ in range(num_nalus):
-            if offset + length_size > len(data):
-                log_error("Invalid NAL length")
-                return None
+        if s_bit == 1:
+            fu_buffer = bytearray([nal_header_1, nal_header_2])
+            fu_buffer.extend(payload[3:])
+            is_assembling_fu = True
+        elif is_assembling_fu:
+            fu_buffer.extend(payload[3:])
+            
+            if e_bit == 1:
+                out.extend(b"\x00\x00\x00\x01")
+                out.extend(fu_buffer)
+                fu_buffer = bytearray()
+                is_assembling_fu = False
+                
+    elif 0 <= nal_type <= 47:
+        is_assembling_fu = False 
+        out.extend(b"\x00\x00\x00\x01")
+        out.extend(payload)
 
-            # Legge la lunghezza del NAL
-            nal_len = int.from_bytes(data[offset:offset+length_size], "big")
-            offset += length_size
-
-            if offset + nal_len > len(data):
-                log_error("NAL size mismatch")
-                return None
-
-            nal_payload = data[offset:offset+nal_len]
-            offset += nal_len
-
-            # Scrive start code + payload
+    elif nal_type == 48:
+        is_assembling_fu = False
+        offset = 2
+        while offset < len(payload):
+            if offset + 2 > len(payload):
+                break
+            nal_size = struct.unpack("!H", payload[offset:offset+2])[0]
+            offset += 2
+            if offset + nal_size > len(payload):
+                break
             out.extend(b"\x00\x00\x00\x01")
-            out.extend(nal_payload)
-
-    return bytes(out)
-
-# ------------------------------------------------------------
-#   PROCESSAMENTO RTP
-# ------------------------------------------------------------
+            out.extend(payload[offset:offset+nal_size])
+            offset += nal_size
+            
+    return bytes(out) if out else None
 
 def process_packet(packet):
-    global buffer, expected_seq
+    global expected_seq, fu_buffer, is_assembling_fu
 
     seq, marker = parse_rtp_header(packet)
     if seq is None:
         log_error("Invalid RTP packet")
         return
 
-    payload = packet[RTP_HEADER_SIZE:]
-
-    # Sequence check
     if expected_seq is not None and seq != expected_seq:
         log_error(f"Sequence mismatch: expected {expected_seq}, got {seq}")
-        buffer = bytearray()
+        fu_buffer = bytearray()
+        is_assembling_fu = False
 
     expected_seq = (seq + 1) & 0xFFFF
+    payload = packet[RTP_HEADER_SIZE:]
 
-    # Accumula payload
-    buffer.extend(payload)
-
-    # Marker RTP = fine batch
-    if marker == 1:
-        frame = convert_hvcc_to_annexb(buffer)
-
-        if frame is None:
-            log_error("Failed to convert HVCC to Annex-B")
-        else:
-            send_frame(frame)
-
-        buffer = bytearray()
-        expected_seq = None
-
-# ------------------------------------------------------------
-#   IO
-# ------------------------------------------------------------
+    annexb_data = process_rtp_hevc(payload)
+    
+    if annexb_data:
+        send_frame(annexb_data)
 
 def read_exact(n):
     data = bytearray()

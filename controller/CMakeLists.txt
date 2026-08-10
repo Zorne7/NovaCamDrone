@@ -27,6 +27,7 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         ../protocol.h
         dronecontroller.h dronecontroller.cpp
         decoder.h decoder.cpp
+        bin/decoder.py
     )
 # Define target properties for Android with Qt 6 as:
 #    set_property(TARGET controller APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
