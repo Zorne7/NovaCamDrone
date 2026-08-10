@@ -24,6 +24,21 @@ def parse_rtp_header(packet):
     marker = (packet[1] >> 7) & 1
     return seq, marker
 
+def process_rtp_mjpeg(payload):
+    if not payload:
+        return None
+
+    if payload[:2] == b"\xFF\xD8":
+        return bytes(payload)
+
+    start = payload.find(b"\xFF\xD8")
+    end = payload.rfind(b"\xFF\xD9")
+    if start != -1 and end != -1 and end >= start:
+        return bytes(payload[start:end + 2])
+
+    return None
+
+
 def process_rtp_hevc(payload):
     global fu_buffer, is_assembling_fu
 
@@ -38,11 +53,11 @@ def process_rtp_hevc(payload):
     if nal_type == 49:
         if len(payload) < 3:
             return None
-        
+
         fu_header = payload[2]
-        s_bit = (fu_header >> 7) & 1 
-        e_bit = (fu_header >> 6) & 1 
-        fu_type = fu_header & 0x3F    
+        s_bit = (fu_header >> 7) & 1
+        e_bit = (fu_header >> 6) & 1
+        fu_type = fu_header & 0x3F
 
         nal_header_1 = (fu_type << 1) | (payload[0] & 0x01)
         nal_header_2 = payload[1]
@@ -53,15 +68,15 @@ def process_rtp_hevc(payload):
             is_assembling_fu = True
         elif is_assembling_fu:
             fu_buffer.extend(payload[3:])
-            
+
             if e_bit == 1:
                 out.extend(b"\x00\x00\x00\x01")
                 out.extend(fu_buffer)
                 fu_buffer = bytearray()
                 is_assembling_fu = False
-                
+
     elif 0 <= nal_type <= 47:
-        is_assembling_fu = False 
+        is_assembling_fu = False
         out.extend(b"\x00\x00\x00\x01")
         out.extend(payload)
 
@@ -71,15 +86,16 @@ def process_rtp_hevc(payload):
         while offset < len(payload):
             if offset + 2 > len(payload):
                 break
-            nal_size = struct.unpack("!H", payload[offset:offset+2])[0]
+            nal_size = struct.unpack("!H", payload[offset:offset + 2])[0]
             offset += 2
             if offset + nal_size > len(payload):
                 break
             out.extend(b"\x00\x00\x00\x01")
-            out.extend(payload[offset:offset+nal_size])
+            out.extend(payload[offset:offset + nal_size])
             offset += nal_size
-            
+
     return bytes(out) if out else None
+
 
 def process_packet(packet):
     global expected_seq, fu_buffer, is_assembling_fu
@@ -97,10 +113,12 @@ def process_packet(packet):
     expected_seq = (seq + 1) & 0xFFFF
     payload = packet[RTP_HEADER_SIZE:]
 
-    annexb_data = process_rtp_hevc(payload)
-    
-    if annexb_data:
-        send_frame(annexb_data)
+    frame_data = process_rtp_mjpeg(payload)
+    if frame_data is None:
+        frame_data = process_rtp_hevc(payload)
+
+    if frame_data:
+        send_frame(frame_data)
 
 def read_exact(n):
     data = bytearray()

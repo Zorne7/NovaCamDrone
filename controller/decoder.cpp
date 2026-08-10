@@ -1,5 +1,7 @@
 #include "decoder.h"
 
+#include <QCoreApplication>
+
 Decoder::Decoder(QObject *parent)
     : QObject{parent}
 {
@@ -14,6 +16,7 @@ Decoder::Decoder(QObject *parent)
 
 void Decoder::init()
 {
+    decoderProcess.setWorkingDirectory(QCoreApplication::applicationDirPath());
     decoderProcess.start("python3", QStringList() << "decoder.py");
 }
 

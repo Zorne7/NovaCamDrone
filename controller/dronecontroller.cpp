@@ -74,7 +74,7 @@ bool DroneController::sendCmd(const Packet &cmd)
 AckVal_t DroneController::waitAck(int timeout_ms)
 {
     if (lastAck.cmd != PacketType_Invalid) {
-        return true;
+        return lastAck.val;
     }
     QEventLoop loop;
     QTimer timer;

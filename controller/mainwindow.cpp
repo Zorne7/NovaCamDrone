@@ -164,7 +164,7 @@ void MainWindow::updateFlyCtrlPar(fly_par_t &par, int newVal, QLineEdit *line)
 void MainWindow::updateFlyCtrlFlag(FlyControlFlags flag, bool enable)
 {
     FlyControlFlags_t flags = flyCtrls.flags;
-    Flag_Set(flyCtrls.flags, ControlFlag_GyroCorrection, enable);
+    Flag_Set(flyCtrls.flags, flag, enable);
     ui->flagsLine->setText(hex(flyCtrls.flags));
     if(droneCtrl.portOpened() && flyCtrls.flags != flags) {
         droneCtrl.sendFlyControls(flyCtrls);
