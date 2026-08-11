@@ -247,6 +247,34 @@ def append_h264_nal(payload):
     return None
 
 
+def h264_access_unit_ready():
+    if not h264_buffer:
+        return False
+    markers = (
+        b"\x00\x00\x00\x01\x67",
+        b"\x00\x00\x00\x01\x68",
+        b"\x00\x00\x00\x01\x65",
+        b"\x00\x00\x00\x01\x61",
+        b"\x00\x00\x00\x01\x41",
+        b"\x00\x00\x00\x01\x01",
+        b"\x00\x00\x00\x01\x05",
+    )
+    return any(marker in h264_buffer for marker in markers) or (b"\x00\x00\x00\x01" in h264_buffer and len(h264_buffer) > 16)
+
+
+def flush_h264_if_ready():
+    global h264_buffer
+    if not h264_buffer:
+        return None
+    if not h264_access_unit_ready():
+        return None
+    frame = decode_h264_to_jpeg(bytes(h264_buffer))
+    if frame:
+        h264_buffer.clear()
+        return frame
+    return None
+
+
 def process_rtp_h264(payload, marker=False):
     global h264_buffer
 
@@ -265,18 +293,13 @@ def process_rtp_h264(payload, marker=False):
         if is_start:
             h264_buffer.extend(b"\x00\x00\x00\x01")
             h264_buffer.append((fu_indicator & 0xE0) | fu_type)
-            h264_buffer.extend(payload[2:])
-        else:
-            h264_buffer.extend(payload[2:])
+        h264_buffer.extend(payload[2:])
 
-        if is_end or marker:
-            frame = decode_h264_to_jpeg(bytes(h264_buffer))
-            if frame:
-                h264_buffer.clear()
-                return frame
+        if (is_end or marker):
+            return flush_h264_if_ready()
         return None
 
-    if nal_type == 24 and len(payload) >= 2:
+    if nal_type == 24 and len(payload) >= 1:
         offset = 1
         while offset + 2 <= len(payload):
             nal_size = struct.unpack("!H", payload[offset:offset + 2])[0]
@@ -287,37 +310,24 @@ def process_rtp_h264(payload, marker=False):
             h264_buffer.extend(payload[offset:offset + nal_size])
             offset += nal_size
         if marker:
-            frame = decode_h264_to_jpeg(bytes(h264_buffer))
-            if frame:
-                h264_buffer.clear()
-                return frame
+            return flush_h264_if_ready()
         return None
 
     if nal_type in (1, 5, 6, 7, 8, 9, 14, 15, 17, 18, 19, 20, 21, 22, 23):
         h264_buffer.extend(b"\x00\x00\x00\x01")
         h264_buffer.extend(payload)
         if marker:
-            frame = decode_h264_to_jpeg(bytes(h264_buffer))
-            if frame:
-                h264_buffer.clear()
-                return frame
+            return flush_h264_if_ready()
         return None
 
     if looks_like_h264(payload):
         h264_buffer.extend(add_h264_start_code(payload))
         if marker:
-            frame = decode_h264_to_jpeg(bytes(h264_buffer))
-            if frame:
-                h264_buffer.clear()
-                return frame
+            return flush_h264_if_ready()
         return None
 
-    h264_buffer.extend(add_h264_start_code(payload))
     if marker:
-        frame = decode_h264_to_jpeg(bytes(h264_buffer))
-        if frame:
-            h264_buffer.clear()
-            return frame
+        log_error(f"Dropping non-H264 RTP packet with marker: {payload[:16].hex()}")
     return None
 
 
@@ -387,7 +397,21 @@ def process_packet(packet):
         send_frame(packet)
         return
 
+    if looks_like_h264(packet):
+        frame_data = decode_h264_to_jpeg(packet)
+        if frame_data:
+            send_frame(frame_data)
+        return
+
     if not looks_like_rtp(packet):
+        payload = packet
+        frame_data = process_rtp_mjpeg(payload)
+        if frame_data is None:
+            frame_data = process_rtp_h264(payload, marker=True)
+        if frame_data is None:
+            frame_data = process_rtp_hevc(payload)
+        if frame_data:
+            send_frame(frame_data)
         return
 
     seq, marker = parse_rtp_header(packet)
