@@ -1,6 +1,7 @@
 #ifndef PROTOCOL_H
 #define PROTOCOL_H
 
+#include <memory.h>
 #include <stdint.h>
 #include <string>
 #include <vector>
@@ -44,7 +45,38 @@ typedef char ssid_t[8];
 typedef uint16_t port_t;
 typedef vector<uint8_t> ByteArray;
 typedef uint8_t crc_t;
-static crc_t calculate_crc(const void *data, size_t len);
+
+// COMMON FUNCTIONS
+static inline crc_t calculate_crc(const void *data, size_t len, crc_t init_val = 0x00)
+{
+    const uint8_t *bytes = (const uint8_t *) data;
+    crc_t crc = init_val;
+    for (int i = 0; i < len; i++) {
+        crc ^= bytes[i];
+    }
+    return crc;
+}
+
+template<typename T>
+static inline const ByteArray toBytes(const T &data)
+{
+    if constexpr (is_same_v<T, string>){
+        return ByteArray((const uint8_t *)data.c_str(), (const uint8_t *)data.c_str() + data.size());
+    }
+    else {
+        return ByteArray((const uint8_t *)&data, (const uint8_t *)&data + sizeof(T));
+    }
+}
+
+template<typename T, typename F = T>
+static inline void Flag_Set(T &flags, F flag, bool en)
+{
+    if (en) {
+        flags |= (T) (flag);
+    } else {
+        flags &= (T) (~flag);
+    }
+}
 
 // PROTOCOL STRUCTURES DEFINITION
 #pragma pack(push, 1)
@@ -178,7 +210,7 @@ struct Ack
     AckVal_t val = AckVal_Tiemout;
 };
 
-union PacketData {
+union PacketPayload {
     // Command
     ConnParams connParams;
     DroneCmd droneCmd;
@@ -192,13 +224,13 @@ union PacketData {
 };
 
 struct Packet {
-    explicit Packet(PacketType packType = PacketType_Invalid, const PacketData &packData = {0})
-        : type(packType), data(packData), crc(0) {
+    explicit Packet(PacketType packType = PacketType_Invalid, const PacketPayload &packPayload = {0})
+        : type(packType), payload(packPayload), crc(0) {
         if(type != PacketType_Invalid){ crc = calculate_crc(this, sizeof(Packet) - sizeof(crc)); }
     }
 
     PacketType_t type;
-    PacketData data;
+    PacketPayload payload;
     crc_t crc;
 
     inline bool checkCrc() const { return calculate_crc(this, sizeof(Packet) - sizeof(crc)) == crc; }
@@ -213,38 +245,6 @@ static constexpr DroneCmd DroneCmd_SWITCH_CAM_FRONT = {6, 1};
 static constexpr DroneCmd DroneCmd_SWITCH_CAM_BACK = {6, 2};
 static constexpr DroneCmd DroneCmd_ACK_PHOTO = {9, 1};
 static constexpr DroneCmd DroneCmd_ACK_VIDEO = {9, 2};
-
-// COMMON FUNCTIONS
-static inline crc_t calculate_crc(const void *data, size_t len)
-{
-    const uint8_t *bytes = (const uint8_t *) data;
-    crc_t crc = bytes[0];
-    for (int i = 1; i < len; i++) {
-        crc ^= bytes[i];
-    }
-    return crc;
-}
-
-template<typename T>
-static inline const ByteArray toBytes(const T &data)
-{
-    if constexpr (std::is_same_v<T, string>){
-        return ByteArray((const uint8_t *)data.c_str(), (const uint8_t *)data.c_str() + data.size());
-    }
-    else {
-        return ByteArray((const uint8_t *)&data, (const uint8_t *)&data + sizeof(T));
-    }
-}
-
-template<typename T, typename F = T>
-static inline void Flag_Set(T &flags, F flag, bool en)
-{
-    if (en) {
-        flags |= (T) (flag);
-    } else {
-        flags &= (T) (~flag);
-    }
-}
 
 // COMMON INTERFACES
 struct RTSP
@@ -408,7 +408,7 @@ public:
 
         case PacketType_SetConnection:
             disconnectFromDrone();
-            connParams = cmdPkt.data.connParams;
+            connParams = cmdPkt.payload.connParams;
             ok = true;
             break;
 
@@ -417,16 +417,16 @@ public:
             return true; // Return to not send ack
 
         case PacketType_DroneCmd:
-            ok = sendDroneCmd(cmdPkt.data.droneCmd);
+            ok = sendDroneCmd(cmdPkt.payload.droneCmd);
             break;
 
         case PacketType_SetControls:
-            flyCmd.setControls(cmdPkt.data.controls);
+            flyCmd.setControls(cmdPkt.payload.controls);
             ok = true;
             break;
 
         case PacketType_SetVideo:
-            if (cmdPkt.data.videoEnabled) {
+            if (cmdPkt.payload.videoEnabled) {
                 ok = RTSP::respOk(sendDroneVideoCmd(rtsp.options(), RTSP_RESP_TIMEOUT_MS))
                      && RTSP::respOk(sendDroneVideoCmd(rtsp.describe(), RTSP_RESP_TIMEOUT_MS));
                 if (ok) {

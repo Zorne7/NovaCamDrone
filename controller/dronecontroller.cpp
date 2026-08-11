@@ -157,16 +157,16 @@ void DroneController::processData()
 
     switch (packet.type) {
     case PacketType_Ack:
-        lastAck = packet.data.ack;
+        lastAck = packet.payload.ack;
         emit ackRecv(lastAck);
         break;
 
     case PacketType_ConnectionStat:
-        emit connStatusRecv(packet.data.connStatus);
+        emit connStatusRecv(packet.payload.connStatus);
         break;
 
     case PacketType_DroneTlm:
-        parseDroneTlm(packet.data.droneTlm);
+        parseDroneTlm(packet.payload.droneTlm);
         break;
 
     case PacketType_TextMsg:
@@ -214,7 +214,7 @@ void DroneController::readPort()
         }
 
         if(bufferMap.contains(lastPacket.type)){
-            const int size = MIN(bytes, lastPacket.data.dataSize - bufferMap[lastPacket.type].size());
+            const int size = MIN(bytes, lastPacket.payload.dataSize - bufferMap[lastPacket.type].size());
             if (size > 0) {
                 const QByteArray data = port.read(size);
                 if (data.size() != size) {
@@ -226,7 +226,7 @@ void DroneController::readPort()
             }
         }
 
-        if (!bufferMap.contains(lastPacket.type) || bufferMap[lastPacket.type].size() >= lastPacket.data.dataSize) {
+        if (!bufferMap.contains(lastPacket.type) || bufferMap[lastPacket.type].size() >= lastPacket.payload.dataSize) {
             processData();
         }
     }
