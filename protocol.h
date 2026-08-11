@@ -18,10 +18,10 @@ using namespace std;
 #define DRONE_PASSW ""
 #define DRONE_IP "192.168.1.1"
 #define DRONE_CTRL_PORT 7099
-#define DRONE_VIDEO_PORT 7070
-#define DRONE_CAM "rtsp://" DRONE_IP ":" STR(DRONE_VIDEO_PORT) "/webcam"
+#define DRONE_RTSP_PORT 7070
 #define DRONE_RTP_PORT 23144
 #define DRONE_RTCP_PORT 23145
+#define DRONE_CAM "rtsp://" DRONE_IP ":" STR(DRONE_RTSP_PORT) "/webcam"
 
 // PROTOCOL CONFIG
 #define FLY_CONTROL_NEUTRAL 128

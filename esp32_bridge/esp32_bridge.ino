@@ -67,7 +67,7 @@ public:
   void start() override {
     ctrl.begin(DRONE_CTRL_PORT);
     videoRtp.begin(DRONE_RTP_PORT);
-    videoRtsp.connect(DRONE_IP, DRONE_VIDEO_PORT);
+    videoRtsp.connect(DRONE_IP, DRONE_RTSP_PORT);
   }
 
 private:
