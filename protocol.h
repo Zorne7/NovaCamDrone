@@ -228,7 +228,12 @@ static inline crc_t calculate_crc(const void *data, size_t len)
 template<typename T>
 static inline const ByteArray toBytes(const T &data)
 {
-    return ByteArray((const uint8_t *)&data, (const uint8_t *)&data + sizeof(T));
+    if constexpr (std::is_same_v<T, string>){
+        return ByteArray((const uint8_t *)data.c_str(), (const uint8_t *)data.c_str() + data.size());
+    }
+    else {
+        return ByteArray((const uint8_t *)&data, (const uint8_t *)&data + sizeof(T));
+    }
 }
 
 template<typename T, typename F = T>
@@ -449,7 +454,7 @@ public:
             return false;
         }
         const ByteArray crc = toBytes(calculate_crc(msg.data(), msg.size()));
-        ByteArray txt((const uint8_t *)msg.c_str(), (const uint8_t *)msg.c_str() + msg.size());
+        ByteArray txt = toBytes(msg);
         txt.insert(txt.end(), crc.begin(), crc.end());
         const Packet tlmPkt = Packet(PacketType_TextMsg, {.dataSize = (uint16_t)txt.size()});
         return sendTlmPacket(tlmPkt) && sendTlmPacketData(txt);
