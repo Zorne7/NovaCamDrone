@@ -2,6 +2,8 @@
 
 #include <QCoreApplication>
 
+#define WAIT_BYTES_WRITTEN_MS 100
+
 Decoder::Decoder(QObject *parent)
     : QObject{parent}
 {
@@ -37,6 +39,10 @@ void Decoder::decodeVideoData(const QByteArray &videoData)
     stream << static_cast<quint32>(videoData.size());
     packet.append(videoData);
     decoderProcess.write(packet);
+    bool ok = decoderProcess.waitForBytesWritten(WAIT_BYTES_WRITTEN_MS);
+    if (!ok) {
+        emit errorOccurred("Video data not completely sent to decoder in " + QString::number(WAIT_BYTES_WRITTEN_MS) + " ms");
+    }
 }
 
 void Decoder::parseVideoData()
