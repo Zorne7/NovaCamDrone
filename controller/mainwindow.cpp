@@ -209,8 +209,10 @@ void MainWindow::onConnStatusRecv(ConnStatus_t connStatus)
 void MainWindow::onFrameReady(const QByteArray &frameData)
 {
     QImage img;
-    img.loadFromData(frameData, "JPEG");
+    img.loadFromData(frameData);
     if (!img.isNull()) {
         ui->frame->setPixmap(QPixmap::fromImage(img));
+    } else {
+        qWarning() << "Frame data not decoded: " << frameData.size() << frameData.toHex();
     }
 }
