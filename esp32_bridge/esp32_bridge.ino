@@ -77,13 +77,13 @@ private:
 
   void startConnection(const string &ssid, const string &passw) override { WiFi.begin(ssid.c_str(), passw.c_str()); }
 
-  const ByteArray readCmdPacketData(uint16_t size) override {
-    if (Serial.available() < size) {
+  const ByteArray readCmdPacketData() override {
+    if (Serial.available() < sizeof(Packet)) {
       return {};
     }
-    ByteArray buff(size);
-    int r = Serial.readBytes(buff.data(), size);
-    if (r != size) {
+    ByteArray buff(sizeof(Packet));
+    int r = Serial.readBytes(buff.data(), sizeof(Packet));
+    if (r != sizeof(Packet)) {
       return {};
     }
     return buff;

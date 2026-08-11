@@ -225,10 +225,15 @@ union PacketPayload {
 
 struct Packet {
     explicit Packet(PacketType packType = PacketType_Invalid, const PacketPayload &packPayload = {0})
-        : type(packType), payload(packPayload){}
+        : type(packType), payload(packPayload), crc(0) {
+        if(type != PacketType_Invalid){ crc = calculate_crc(this, sizeof(Packet) - sizeof(crc)); }
+    }
 
     PacketType_t type;
     PacketPayload payload;
+    crc_t crc;
+
+    inline bool checkCrc() const { return calculate_crc(this, sizeof(Packet) - sizeof(crc)) == crc; }
 };
 
 #pragma pack(pop)
@@ -386,13 +391,12 @@ public:
     bool parseCmdPacket()
     {
         Packet cmdPkt;
-        crc_t cmdCrc;
-        if (!readCmdPacket(&cmdPkt, &cmdCrc)) {
+        if (!readCmdPacket(&cmdPkt)) {
             // No cmd received
             return false;
         }
 
-        if(calculate_crc(&cmdPkt, sizeof(cmdPkt)) != cmdCrc) {
+        if(!cmdPkt.checkCrc()) {
             // Crc error
             sendTlmPacket(Packet(PacketType_Ack, {.ack = {.cmd = cmdPkt.type, .val = AckVal_CrcErr}}));
             return true;
@@ -449,9 +453,11 @@ public:
         if(msg.empty()){
             return false;
         }
-        const ByteArray txt = toBytes(msg);
+        const ByteArray crc = toBytes(calculate_crc(msg.data(), msg.size()));
+        ByteArray txt = toBytes(msg);
+        txt.insert(txt.end(), crc.begin(), crc.end());
         const Packet tlmPkt = Packet(PacketType_TextMsg, {.dataSize = (uint16_t)txt.size()});
-        return sendTlmPacket(tlmPkt, txt);
+        return sendTlmPacket(tlmPkt) && sendTlmPacketData(txt);
     }
 
     bool forwardConnStatus() {
@@ -467,35 +473,27 @@ public:
     }
 
     bool forwardDroneVideo() {
-        const ByteArray videoData = readDroneVideoData();
+        ByteArray videoData = readDroneVideoData();
         if(videoData.empty()){
             return false;
         }
+        const ByteArray crc = toBytes(calculate_crc(videoData.data(), videoData.size()));
+        videoData.insert(videoData.end(), crc.begin(), crc.end());
         const Packet tlmPkt = Packet(PacketType_DroneVideo, {.dataSize = (uint16_t)videoData.size()});
-        return sendTlmPacket(tlmPkt, videoData);
+        return sendTlmPacket(tlmPkt) && sendTlmPacketData(videoData);
     }
 
 protected:
-    bool readCmdPacket(Packet *pkt, crc_t *crc) {
-        static constexpr uint16_t pktSize = sizeof(*pkt) + sizeof(*crc);
-        const ByteArray pktContent = readCmdPacketData(pktSize);
-        if(pktContent.size() < pktSize) {
+    bool readCmdPacket(Packet *pkt) {
+        const ByteArray pktContent = readCmdPacketData();
+        if(pktContent.size() < sizeof(*pkt)) {
             return false;
         }
         *pkt = *(typeof(pkt))pktContent.data();
-        *crc = *(typeof(crc))(pktContent.data() + sizeof(*pkt));
         return true;
     }
 
-    bool sendTlmPacket(const Packet &pkt, const ByteArray &pktData = {}) {
-        ByteArray data = toBytes(pkt);
-        if(!pktData.empty()){
-            data.insert(data.end(), pktData.begin(), pktData.end());
-        }
-        const ByteArray crc = toBytes(calculate_crc(data.data(), data.size()));
-        data.insert(data.end(), crc.begin(), crc.end());
-        return sendTlmPacketData(data);
-    }
+    bool sendTlmPacket(const Packet &pkt) { return sendTlmPacketData(toBytes(pkt)); }
 
     bool sendDroneCmd(const DroneCmd &droneCmd) { return sendDroneCmdData(toBytes(droneCmd)); };
 
@@ -518,7 +516,7 @@ protected:
     virtual time_t currentTime() const = 0;
     virtual void wait_ms(time_t ms) = 0;
     virtual void startConnection(const string &ssid, const string &passw) = 0;
-    virtual const ByteArray readCmdPacketData(uint16_t size) = 0;
+    virtual const ByteArray readCmdPacketData() = 0;
     virtual bool sendTlmPacketData(const ByteArray &tlmData) = 0;
     virtual bool sendDroneCmdData(const ByteArray &cmdData) = 0;
     virtual const ByteArray readDroneTlmData() = 0;
