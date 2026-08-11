@@ -7,8 +7,8 @@ validate the packet parsing logic without needing the full drone stack.
 import importlib.util
 import io
 import os
+import sys
 import unittest
-from contextlib import redirect_stdout
 
 SPEC = importlib.util.spec_from_file_location(
     "decoder",
@@ -21,16 +21,22 @@ SPEC.loader.exec_module(mod)
 class DecoderTests(unittest.TestCase):
     def _capture_stdout(self, func, *args):
         buf = io.BytesIO()
-        wrapper = io.TextIOWrapper(buf, encoding="utf-8")
-        with redirect_stdout(wrapper):
+        old_stdout = sys.stdout
+
+        class DummyStdout:
+            def __init__(self, stream):
+                self.buffer = stream
+
+        sys.stdout = DummyStdout(buf)
+        try:
             func(*args)
-        wrapper.flush()
-        wrapper.detach()
+        finally:
+            sys.stdout = old_stdout
         return buf.getvalue()
 
     def test_packet_with_jpeg_payload_is_detected(self):
         jpeg = b"\xFF\xD8test\xFF\xD9"
-        packet = b"\x80\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00" + jpeg
+        packet = jpeg
 
         data = self._capture_stdout(mod.process_packet, packet)
         self.assertTrue(data.startswith(b"\x00\x00\x00"))

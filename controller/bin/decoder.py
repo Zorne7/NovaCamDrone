@@ -17,23 +17,38 @@ def is_jpeg(data):
     return bool(data) and data.startswith(b"\xFF\xD8") and b"\xFF\xD9" in data
 
 
+def looks_like_rtp(packet):
+    if len(packet) < 12:
+        return False
+    version = (packet[0] >> 6) & 0x03
+    payload_type = packet[1] & 0x7F
+    return version == 2 and payload_type in (96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 120, 127)
+
+
 def looks_like_h264(data):
     if not data:
+        return False
+    if is_jpeg(data):
         return False
     if data.startswith(b"\x00\x00\x00\x01") or b"\x00\x00\x00\x01" in data:
         return True
     if len(data) >= 2 and data[:2] == b"\x00\x00":
         return True
-    return any((byte & 0x1F) in (1, 5, 7, 8, 9, 24, 28) for byte in data[:64])
+    if len(data) >= 2 and data[:2] in (b"\x00\x01", b"\x01\x00"):
+        return True
+    first_bytes = data[:64]
+    # JPEG starts with 0xFF 0xD8 (SOI) and can falsely look like a NAL type 24
+    # when scanning raw bytes, so we reject SOI before analyzing the NAL type.
+    return any((b & 0x1F) in (1, 5, 6, 7, 8, 9, 24, 28) for b in first_bytes if b != 0xFF)
 
 
 def normalize_h264_stream(data):
     if not data:
         return b""
+
     if data.startswith(b"\x00\x00\x00\x01"):
         return data
 
-    # Some Nova Cam payloads are length-delimited NAL chunks instead of raw Annex-B.
     if len(data) >= 4 and len(data) >= struct.unpack(">I", data[:4])[0] + 4:
         stream = bytearray()
         offset = 0
@@ -50,7 +65,44 @@ def normalize_h264_stream(data):
 
     if b"\x00\x00\x00\x01" in data:
         return data
+
     return data
+
+
+def add_h264_start_code(data):
+    if not data:
+        return b""
+    if data.startswith(b"\x00\x00\x00\x01"):
+        return data
+    return b"\x00\x00\x00\x01" + data
+
+
+def extract_complete_h264_frame(stream):
+    if not stream:
+        return None
+
+    if b"\x00\x00\x00\x01" not in stream:
+        return None
+
+    start_positions = []
+    cursor = 0
+    while True:
+        idx = stream.find(b"\x00\x00\x00\x01", cursor)
+        if idx == -1:
+            break
+        start_positions.append(idx)
+        cursor = idx + 1
+
+    if not start_positions:
+        return None
+
+    # We only keep the last complete NAL from the current buffer; this avoids
+    # feeding ffmpeg half-assembled access units.
+    last_start = start_positions[-1]
+    if last_start == 0:
+        return bytes(stream)
+
+    return bytes(stream[last_start:])
 
 
 def decode_h264_to_jpeg(h264_bytes):
@@ -86,7 +138,9 @@ def decode_h264_to_jpeg(h264_bytes):
             check=False,
         )
         if proc.returncode != 0:
-            log_error(proc.stderr.decode("utf-8", "replace").strip() or "H.264 decode failed")
+            stderr = proc.stderr.decode("utf-8", "replace").strip()
+            if stderr:
+                log_error(stderr)
             return None
 
         out = proc.stdout
@@ -96,14 +150,17 @@ def decode_h264_to_jpeg(h264_bytes):
         log_error(f"H.264 decode error: {exc}")
     return None
 
+
 def log_error(msg):
     sys.stderr.write(msg + "\n")
     sys.stderr.flush()
+
 
 def send_frame(frame_bytes):
     header = struct.pack(">I", len(frame_bytes))
     sys.stdout.buffer.write(header + frame_bytes)
     sys.stdout.buffer.flush()
+
 
 def parse_rtp_header(packet):
     if len(packet) < RTP_HEADER_SIZE:
@@ -111,6 +168,7 @@ def parse_rtp_header(packet):
     seq = struct.unpack("!H", packet[2:4])[0]
     marker = (packet[1] >> 7) & 1
     return seq, marker
+
 
 def process_rtp_mjpeg(payload):
     global mjpeg_buffer
@@ -142,51 +200,124 @@ def process_rtp_mjpeg(payload):
     return frame
 
 
-def process_rtp_h264(payload):
+def append_h264_nal(payload):
     global h264_buffer
 
     if not payload:
         return None
 
-    # Avoid decoding every partial packet. A valid H.264 access unit must contain
-    # a keyframe (IDR) plus the SPS/PPS metadata needed by ffmpeg.
-    if looks_like_h264(payload):
-        h264_buffer.extend(normalize_h264_stream(payload))
-    else:
-        nal_type = payload[0] & 0x1F
-        if nal_type == 28 and len(payload) >= 2:
-            fu_indicator = payload[0]
-            fu_header = payload[1]
-            is_start = (fu_header >> 7) & 0x1
-            if is_start:
-                reconstructed = bytearray()
-                reconstructed.append((fu_indicator & 0xE0) | (fu_header & 0x1F))
-                reconstructed.extend(payload[2:])
-                h264_buffer.extend(b"\x00\x00\x00\x01")
-                h264_buffer.extend(reconstructed)
-            else:
-                h264_buffer.extend(payload[2:])
-        elif nal_type == 24 and len(payload) >= 2:
-            offset = 1
-            while offset + 2 <= len(payload):
-                nal_size = struct.unpack("!H", payload[offset:offset + 2])[0]
-                offset += 2
-                if offset + nal_size > len(payload):
-                    break
-                h264_buffer.extend(b"\x00\x00\x00\x01")
-                h264_buffer.extend(payload[offset:offset + nal_size])
-                offset += nal_size
-        else:
+    nal_type = payload[0] & 0x1F
+    if nal_type == 28 and len(payload) >= 2:
+        fu_indicator = payload[0]
+        fu_header = payload[1]
+        is_start = (fu_header >> 7) & 0x1
+        nalu_type = fu_header & 0x1F
+        reconstructed = bytearray()
+        reconstructed.append((fu_indicator & 0xE0) | nalu_type)
+        reconstructed.extend(payload[2:])
+        if is_start:
             h264_buffer.extend(b"\x00\x00\x00\x01")
-            h264_buffer.extend(payload)
-
-    if b"\x00\x00\x00\x01\x65" not in h264_buffer and b"\x00\x00\x00\x01\x67" not in h264_buffer:
+            h264_buffer.extend(reconstructed)
+        else:
+            h264_buffer.extend(reconstructed)
         return None
 
-    frame = decode_h264_to_jpeg(bytes(h264_buffer))
-    if frame:
-        h264_buffer.clear()
-        return frame
+    if nal_type == 24 and len(payload) >= 2:
+        offset = 1
+        while offset + 2 <= len(payload):
+            nal_size = struct.unpack("!H", payload[offset:offset + 2])[0]
+            offset += 2
+            if offset + nal_size > len(payload):
+                break
+            if nal_size > 0:
+                h264_buffer.extend(b"\x00\x00\x00\x01")
+                h264_buffer.extend(payload[offset:offset + nal_size])
+            offset += nal_size
+        return None
+
+    if nal_type in (1, 5, 6, 7, 8, 9):
+        h264_buffer.extend(add_h264_start_code(payload))
+        return None
+
+    if looks_like_h264(payload):
+        h264_buffer.extend(add_h264_start_code(payload))
+        return None
+
+    h264_buffer.extend(add_h264_start_code(payload))
+    return None
+
+
+def process_rtp_h264(payload, marker=False):
+    global h264_buffer
+
+    if not payload:
+        return None
+
+    nal_type = payload[0] & 0x1F
+
+    if nal_type == 28 and len(payload) >= 2:
+        fu_indicator = payload[0]
+        fu_header = payload[1]
+        fu_type = fu_header & 0x1F
+        is_start = (fu_header >> 7) & 0x1
+        is_end = (fu_header >> 6) & 0x1
+
+        if is_start:
+            h264_buffer.extend(b"\x00\x00\x00\x01")
+            h264_buffer.append((fu_indicator & 0xE0) | fu_type)
+            h264_buffer.extend(payload[2:])
+        else:
+            h264_buffer.extend(payload[2:])
+
+        if is_end or marker:
+            frame = decode_h264_to_jpeg(bytes(h264_buffer))
+            if frame:
+                h264_buffer.clear()
+                return frame
+        return None
+
+    if nal_type == 24 and len(payload) >= 2:
+        offset = 1
+        while offset + 2 <= len(payload):
+            nal_size = struct.unpack("!H", payload[offset:offset + 2])[0]
+            offset += 2
+            if offset + nal_size > len(payload):
+                break
+            h264_buffer.extend(b"\x00\x00\x00\x01")
+            h264_buffer.extend(payload[offset:offset + nal_size])
+            offset += nal_size
+        if marker:
+            frame = decode_h264_to_jpeg(bytes(h264_buffer))
+            if frame:
+                h264_buffer.clear()
+                return frame
+        return None
+
+    if nal_type in (1, 5, 6, 7, 8, 9, 14, 15, 17, 18, 19, 20, 21, 22, 23):
+        h264_buffer.extend(b"\x00\x00\x00\x01")
+        h264_buffer.extend(payload)
+        if marker:
+            frame = decode_h264_to_jpeg(bytes(h264_buffer))
+            if frame:
+                h264_buffer.clear()
+                return frame
+        return None
+
+    if looks_like_h264(payload):
+        h264_buffer.extend(add_h264_start_code(payload))
+        if marker:
+            frame = decode_h264_to_jpeg(bytes(h264_buffer))
+            if frame:
+                h264_buffer.clear()
+                return frame
+        return None
+
+    h264_buffer.extend(add_h264_start_code(payload))
+    if marker:
+        frame = decode_h264_to_jpeg(bytes(h264_buffer))
+        if frame:
+            h264_buffer.clear()
+            return frame
     return None
 
 
@@ -198,7 +329,6 @@ def process_rtp_hevc(payload):
         return None
 
     nal_type = (payload[0] >> 1) & 0x3F
-
     out = bytearray()
 
     if nal_type == 49:
@@ -219,7 +349,6 @@ def process_rtp_hevc(payload):
             is_assembling_fu = True
         elif is_assembling_fu:
             fu_buffer.extend(payload[3:])
-
             if e_bit == 1:
                 out.extend(b"\x00\x00\x00\x01")
                 out.extend(fu_buffer)
@@ -251,17 +380,25 @@ def process_rtp_hevc(payload):
 def process_packet(packet):
     global expected_seq, fu_buffer, is_assembling_fu, mjpeg_buffer, h264_buffer
 
+    if not packet:
+        return
+
+    if is_jpeg(packet):
+        send_frame(packet)
+        return
+
+    if not looks_like_rtp(packet):
+        return
+
     seq, marker = parse_rtp_header(packet)
     if seq is None:
         log_error("Invalid RTP packet")
         return
 
-    if expected_seq is not None and seq != expected_seq:
-        log_error(f"Sequence mismatch: expected {expected_seq}, got {seq}")
-        fu_buffer = bytearray()
-        is_assembling_fu = False
-        mjpeg_buffer = bytearray()
-        h264_buffer = bytearray()
+    if expected_seq is not None:
+        gap = (seq - expected_seq) & 0xFFFF
+        if gap > 1 and gap < 0x8000:
+            log_error(f"Sequence gap: expected {expected_seq}, got {seq}; continuing")
 
     expected_seq = (seq + 1) & 0xFFFF
     payload = packet[RTP_HEADER_SIZE:]
@@ -270,20 +407,21 @@ def process_packet(packet):
         return
 
     if payload.startswith(b"\x00\x00\x00\x01") or b"\x00\x00\x00\x01" in payload:
-        frame_data = process_rtp_h264(payload)
+        frame_data = process_rtp_h264(payload, marker=bool(marker))
     elif payload.startswith(b"\xFF\xD8") or payload.find(b"\xFF\xD8") >= 0:
         frame_data = process_rtp_mjpeg(payload)
-    elif payload[0] & 0x1F in (1, 5, 7, 28, 24):
-        frame_data = process_rtp_h264(payload)
+    elif payload[0] & 0x1F in (1, 5, 6, 7, 8, 9, 24, 28):
+        frame_data = process_rtp_h264(payload, marker=bool(marker))
     else:
         frame_data = process_rtp_mjpeg(payload)
         if frame_data is None:
-            frame_data = process_rtp_h264(payload)
+            frame_data = process_rtp_h264(payload, marker=bool(marker))
         if frame_data is None:
             frame_data = process_rtp_hevc(payload)
 
     if frame_data:
         send_frame(frame_data)
+
 
 def read_exact(n):
     data = bytearray()
@@ -293,6 +431,7 @@ def read_exact(n):
             return None
         data.extend(chunk)
     return data
+
 
 def main():
     while True:
@@ -307,6 +446,7 @@ def main():
             break
 
         process_packet(packet)
+
 
 if __name__ == "__main__":
     main()
