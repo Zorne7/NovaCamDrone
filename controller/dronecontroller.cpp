@@ -4,6 +4,13 @@
 #include <QEventLoop>
 #include <QTimer>
 
+#define TEST_WITH_PC_CAM 1
+
+#if TEST_WITH_PC_CAM
+#include <QBuffer>
+#include "camera.h"
+#endif
+
 DroneController::DroneController(QObject *parent)
     : QObject{parent}
 {
@@ -21,6 +28,17 @@ DroneController::DroneController(QObject *parent)
     connect(&decoder, &Decoder::frameReady, this, &DroneController::frameReady);
 
     decoder.init();
+
+#if TEST_WITH_PC_CAM
+    Camera *cam = new Camera(this);
+    connect(cam, &Camera::frameReady, this, [this](const QImage &frame) {
+        QByteArray data;
+        QBuffer buffer(&data);
+        frame.save(&buffer, "JPG");
+        decoder.decodeVideoData(data);
+    });
+    cam->start();
+#endif
 }
 
 bool DroneController::setPort(const QString &portName)
