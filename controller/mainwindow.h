@@ -35,7 +35,7 @@ private slots:
     void onErrOccurred(const QString &err);
     void onAckRecv(const Ack &ack);
     void onConnStatusRecv(ConnStatus_t connStatus);
-    void onFrameReady(const QByteArray &frameData);
+    void onFrameReady(const QImage &frame);
 
 private:
     Ui::MainWindow *ui;

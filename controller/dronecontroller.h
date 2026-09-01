@@ -42,7 +42,7 @@ signals:
     void ackRecv(const Ack &ack);
     void connStatusRecv(ConnStatus_t connStatus);
     void errorOccurred(const QString &err);
-    void frameReady(const QByteArray &frameData);
+    void frameReady(const QImage &frame);
 
 private slots:
     void readPort();

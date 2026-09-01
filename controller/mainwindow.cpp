@@ -206,13 +206,11 @@ void MainWindow::onConnStatusRecv(ConnStatus_t connStatus)
     ui->connStatusEdit->setText(status);
 }
 
-void MainWindow::onFrameReady(const QByteArray &frameData)
+void MainWindow::onFrameReady(const QImage &frame)
 {
-    QImage img;
-    img.loadFromData(frameData);
-    if (!img.isNull()) {
-        ui->frame->setPixmap(QPixmap::fromImage(img));
+    if (!frame.isNull()) {
+        ui->frame->setPixmap(QPixmap::fromImage(frame));
     } else {
-        qWarning() << "Frame data not decoded: " << frameData.size() << frameData.toHex();
+        qWarning() << "Frame not valid";
     }
 }
