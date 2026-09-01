@@ -10,8 +10,8 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core Network Widgets SerialPort)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Network Widgets SerialPort)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core Network Widgets SerialPort Multimedia)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Network Widgets SerialPort Multimedia)
 
 set(PROJECT_SOURCES
         main.cpp
@@ -28,6 +28,7 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         dronecontroller.h dronecontroller.cpp
         decoder.h decoder.cpp
         bin/decoder.py
+        camera.h camera.cpp
     )
 # Define target properties for Android with Qt 6 as:
 #    set_property(TARGET controller APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
@@ -52,6 +53,7 @@ target_link_libraries(controller PRIVATE
     Qt${QT_VERSION_MAJOR}::Network
     Qt${QT_VERSION_MAJOR}::Widgets
     Qt${QT_VERSION_MAJOR}::SerialPort
+    Qt${QT_VERSION_MAJOR}::Multimedia
 )
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.

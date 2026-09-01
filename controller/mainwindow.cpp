@@ -6,6 +6,10 @@
 #include <QWidget>
 #include <QMetaEnum>
 
+#include "camera.h"
+
+#define TEST_WITH_CAM 1
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -19,6 +23,12 @@ MainWindow::MainWindow(QWidget *parent)
     connect(&droneCtrl, &DroneController::ackRecv, this, &MainWindow::onAckRecv);
     connect(&droneCtrl, &DroneController::connStatusRecv, this, &MainWindow::onConnStatusRecv);
     connect(&droneCtrl, &DroneController::frameReady, this, &MainWindow::onFrameReady);
+
+#if TEST_WITH_CAM
+    Camera *cam = new Camera(this);
+    connect(cam, &Camera::frameReady, this, &MainWindow::onFrameReady);
+    cam->start();
+#endif
 
     connect(ui->btnSetConn, &QPushButton::clicked, this, &MainWindow::sendSetConnection);
     connect(ui->btnGetConn, &QPushButton::clicked, &droneCtrl, &DroneController::sendGetConnection);
@@ -209,7 +219,9 @@ void MainWindow::onConnStatusRecv(ConnStatus_t connStatus)
 void MainWindow::onFrameReady(const QImage &frame)
 {
     if (!frame.isNull()) {
-        ui->frame->setPixmap(QPixmap::fromImage(frame));
+        ui->frame->setPixmap(QPixmap::fromImage(frame).scaled(ui->frame->size(),
+                                                              Qt::KeepAspectRatio,
+                                                              Qt::SmoothTransformation));
     } else {
         qWarning() << "Frame not valid";
     }
