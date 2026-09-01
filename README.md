@@ -24,7 +24,7 @@ Complete system for controlling the **Nova Cam drone** using an ESP32 and C++/Py
 ### 1. Hardware
 
 -   ESP32 (any model with WiFi)
--   USB cable (Type-C → Type-A)
+-   USB cable (Type-C → Type-A/C)
 -   Drone Nova Cam
 
 ### 2. Software
@@ -50,15 +50,15 @@ Complete system for controlling the **Nova Cam drone** using an ESP32 and C++/Py
 ```
 drone/
 ├── esp32_bridge/
-│   ├── esp32_bridge.ino    	# Firmware ESP32 (Arduino)
-│   └── platformio.ini      	# Config PlatformIO
+│   └── Firmware ESP32 (Arduino)
 │
 ├── controller/
-│   └── sources (C++/Python)	# PC application with GUI
+│   └── PC application with GUI (C++/Python)
 │
-├── fly-nova_cam/           	# APK and its decompiled code (analysis)
+├── fly-nova_cam/
+│   └── APK and its decompiled code (analysis)
 │
-└── protocol.h           		# Header containing protocol and data structures
+└── protocol.h (Header containing protocol and data structures)
 ```
 
 ## 📡 Comands Protocol
