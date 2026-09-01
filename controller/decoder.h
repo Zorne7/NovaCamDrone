@@ -18,7 +18,7 @@ public slots:
 
 signals:
     void errorOccurred(const QString &err);
-    void frameReady(const QByteArray &frameData);
+    void frameReady(const QImage &frame);
 
 private slots:
     void parseVideoData();
@@ -26,6 +26,7 @@ private slots:
 private:
     QProcess decoderProcess;
     QByteArray buffer;
+    uint32_t frameSize;
 };
 
 #endif // DECODER_H

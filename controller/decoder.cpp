@@ -1,11 +1,13 @@
 #include "decoder.h"
 
 #include <QCoreApplication>
+#include <QImage>
 
 #define WAIT_BYTES_WRITTEN_MS 100
 
 Decoder::Decoder(QObject *parent)
     : QObject{parent}
+    , frameSize(0)
 {
     connect(&decoderProcess, &QProcess::readyReadStandardOutput, this, &Decoder::parseVideoData);
     connect(&decoderProcess, &QProcess::readyReadStandardError, this, [=]() {
@@ -47,17 +49,22 @@ void Decoder::decodeVideoData(const QByteArray &videoData)
 
 void Decoder::parseVideoData()
 {
-    quint32 frameSize;
     buffer.append(decoderProcess.readAllStandardOutput());
-    while (buffer.size() >= sizeof(frameSize)) {
-        QDataStream sizeStream(buffer.left(sizeof(frameSize)));
-        sizeStream.setByteOrder(QDataStream::BigEndian);
-        sizeStream >> frameSize;
-        if (buffer.size() < sizeof(frameSize) + frameSize) {
-            break;
+
+    while ((frameSize == 0 && buffer.size() >= sizeof(frameSize))
+           || (frameSize > 0 && buffer.size() >= frameSize)) {
+        if (frameSize == 0) {
+            QDataStream sizeStream(buffer.left(sizeof(frameSize)));
+            sizeStream.setByteOrder(QDataStream::BigEndian);
+            sizeStream >> frameSize;
+            buffer.remove(0, sizeof(frameSize));
         }
-        const QByteArray frameData = buffer.mid(sizeof(frameSize), frameSize);
-        emit frameReady(frameData);
-        buffer.remove(0, sizeof(frameSize) + frameSize);
+        if (buffer.size() >= frameSize) {
+            QImage frame;
+            frame.loadFromData(buffer.left(frameSize));
+            buffer.remove(0, frameSize);
+            frameSize = 0;
+            emit frameReady(frame);
+        }
     }
 }
