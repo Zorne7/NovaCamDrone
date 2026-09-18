@@ -30,7 +30,7 @@ DroneController::DroneController(QObject *parent)
     decoder.init();
 
 #if TEST_WITH_PC_CAM
-    Camera *cam = new Camera(this);
+    Camera *cam = new Camera(TEST_WITH_PC_CAM - 1, this);
     connect(cam, &Camera::frameReady, this, [this](const QImage &frame) {
         QByteArray data;
         QBuffer buffer(&data);

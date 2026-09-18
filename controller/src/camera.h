@@ -11,7 +11,7 @@ class Camera : public QObject
 {
     Q_OBJECT
 public:
-    explicit Camera(QObject *parent = nullptr);
+    explicit Camera(uint8_t c = 0, QObject *parent = nullptr);
 
 public slots:
     void start();
@@ -21,7 +21,7 @@ signals:
     void frameReady(const QImage &frame);
 
 private:
-    QCamera camera;
+    QCamera *cam;
     QMediaCaptureSession session;
     QVideoSink sink;
 };
